@@ -1,0 +1,425 @@
+[
+  {
+    "id": "FND01-BP01",
+    "title": "Establish management account and organizational structure",
+    "capability": "Multi-account environment",
+    "cfatChecks": ["FR-3.1", "FR-3.2", "FR-3.3", "FR-3.4", "FR-3.5", "FR-3.10", "FR-3.11", "FR-3.12"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:DescribeOrganization", "organizations:ListAccounts", "organizations:ListOrganizationalUnitsForParent", "sts:GetCallerIdentity"]
+  },
+  {
+    "id": "FND01-BP02",
+    "title": "Establish ownership for billing, security, and operations",
+    "capability": "Multi-account environment",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Process/organizational check — no single API to validate ownership assignments"
+  },
+  {
+    "id": "FND01-BP03",
+    "title": "Establish boundaries and scopes for your environments",
+    "capability": "Multi-account environment",
+    "cfatChecks": ["FR-3.3", "FR-3.4", "FR-3.5"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAccounts"]
+  },
+  {
+    "id": "FND01-BP04",
+    "title": "Establish a strategy for experimental and temporary environments",
+    "capability": "Multi-account environment",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["organizations:ListOrganizationalUnitsForParent"],
+    "check_logic": "Verify Sandbox OU and/or Suspended OU exist (case-insensitive name match)"
+  },
+  {
+    "id": "FND02-BP01",
+    "title": "Protect account root users, and establish alternate contacts",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["iam:GetAccountSummary", "iam:ListMFADevices", "account:GetAlternateContact"],
+    "check_logic": "AccountAccessKeysPresent == 0 AND AccountMFAEnabled == 1 AND alternate contacts configured"
+  },
+  {
+    "id": "FND02-BP02",
+    "title": "Use strong sign-in mechanisms",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["iam:ListUsers", "iam:ListMFADevices"],
+    "check_logic": "All IAM users (if any) have MFA devices attached"
+  },
+  {
+    "id": "FND02-BP03",
+    "title": "Employ a centralized identity provider",
+    "capability": "Identity and access management",
+    "cfatChecks": ["FR-6.1", "FR-4.7"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["sso-admin:ListInstances"]
+  },
+  {
+    "id": "FND02-BP04",
+    "title": "Establish controls to manage access based on lifecycle",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Process check — joiners/movers/leavers lifecycle not API-verifiable"
+  },
+  {
+    "id": "FND02-BP05",
+    "title": "Grant least privilege access",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": ["iam:ListAttachedRolePolicies", "iam:GetPolicy", "access-analyzer:ListFindings"],
+    "check_logic": "Check for AdministratorAccess attached to non-break-glass roles; check IAM Access Analyzer findings count"
+  },
+  {
+    "id": "FND02-BP06",
+    "title": "Define permission guardrails for your organization",
+    "capability": "Identity and access management",
+    "cfatChecks": ["FR-3.6", "FR-3.9"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListRoots"]
+  },
+  {
+    "id": "FND02-BP07",
+    "title": "Implement data perimeter controls to help prevent unintended access",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": ["ec2:DescribeVpcEndpoints"],
+    "gap_reason": "Requires VPC endpoint policy analysis — complex, architecture-specific"
+  },
+  {
+    "id": "FND02-BP08",
+    "title": "Audit and rotate credentials periodically",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["iam:ListAccessKeys", "iam:GetAccessKeyLastUsed"],
+    "check_logic": "No access keys older than 90 days; no unused keys"
+  },
+  {
+    "id": "FND02-BP09",
+    "title": "Establish a process to continually review and refine permissions",
+    "capability": "Identity and access management",
+    "cfatChecks": ["FR-4.5"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "IAM Access Analyzer org service enabled (access-analyzer.amazonaws.com)"
+  },
+  {
+    "id": "FND02-BP10",
+    "title": "Establish workload and machine identity federation",
+    "capability": "Identity and access management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Workload-specific — requires per-workload OIDC/IRSA configuration analysis"
+  },
+  {
+    "id": "FND03-BP01",
+    "title": "Define observability standards and policies",
+    "capability": "Central observability management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Policy/process definition — not API-verifiable"
+  },
+  {
+    "id": "FND03-BP02",
+    "title": "Establish central, cross-account observability capabilities",
+    "capability": "Central observability management",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["config:DescribeConfigurationAggregators", "cloudwatch:ListMetrics"],
+    "check_logic": "Config Aggregator exists with organization-level source"
+  },
+  {
+    "id": "FND04-BP01",
+    "title": "Implement standardized attribution policies",
+    "capability": "Resource and inventory management",
+    "cfatChecks": ["FR-3.7"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListRoots"],
+    "check_logic": "Tag Policy enabled"
+  },
+  {
+    "id": "FND04-BP02",
+    "title": "Establish an organization view of cloud inventory and dependencies",
+    "capability": "Resource and inventory management",
+    "cfatChecks": ["FR-4.2"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "Config org service enabled (config.amazonaws.com)"
+  },
+  {
+    "id": "FND04-BP03",
+    "title": "Establish standard repositories of shared resources and patterns",
+    "capability": "Resource and inventory management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Organizational practice — Service Catalog usage varies, not one-size-fits-all"
+  },
+  {
+    "id": "FND04-BP04",
+    "title": "Implement mechanisms for patch management",
+    "capability": "Resource and inventory management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": ["ssm:DescribePatchBaselines", "ssm:GetInventory"],
+    "gap_reason": "Requires SSM inventory across member accounts — multi-account Phase 2+"
+  },
+  {
+    "id": "FND04-BP05",
+    "title": "Establish service quota management",
+    "capability": "Resource and inventory management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["service-quotas:ListServiceQuotas"],
+    "check_logic": "Service Quotas alarms configured for critical services"
+  },
+  {
+    "id": "FND04-BP06",
+    "title": "Establish centralized backup standards and mechanisms",
+    "capability": "Resource and inventory management",
+    "cfatChecks": ["FR-3.8", "FR-4.9"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListRoots", "organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "Backup Policy enabled AND backup.amazonaws.com org service enabled"
+  },
+  {
+    "id": "FND04-BP07",
+    "title": "Establish cross-Region replication and failover capabilities",
+    "capability": "Resource and inventory management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Architecture-specific — varies per workload, not org-level checkable"
+  },
+  {
+    "id": "FND04-BP08",
+    "title": "Establish resilience testing tooling",
+    "capability": "Resource and inventory management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Process check — FIS usage is workload-specific"
+  },
+  {
+    "id": "FND05-BP01",
+    "title": "Establish emergency access mechanisms",
+    "capability": "Security and compliance",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["iam:ListRoles"],
+    "check_logic": "Role named *emergency* or *break-glass* exists with appropriate trust policy"
+  },
+  {
+    "id": "FND05-BP02",
+    "title": "Configure audit logging of cloud operations",
+    "capability": "Security and compliance",
+    "cfatChecks": ["FR-4.1", "FR-7.1", "FR-7.2"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["cloudtrail:DescribeTrails", "organizations:ListAWSServiceAccessForOrganization"]
+  },
+  {
+    "id": "FND05-BP03",
+    "title": "Configure standardized locations for logs, traces, and metrics",
+    "capability": "Security and compliance",
+    "cfatChecks": ["FR-3.4"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAccounts"],
+    "check_logic": "Log Archive account exists"
+  },
+  {
+    "id": "FND05-BP04",
+    "title": "Maintain an auditable cloud inventory record",
+    "capability": "Security and compliance",
+    "cfatChecks": ["FR-4.2", "FR-7.3", "FR-7.4"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["config:DescribeConfigurationRecorders", "config:DescribeDeliveryChannels"]
+  },
+  {
+    "id": "FND05-BP05",
+    "title": "Remediate non-compliant resources",
+    "capability": "Security and compliance",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["config:GetComplianceSummaryByConfigRule"],
+    "check_logic": "Non-compliant Config rule count; remediation actions configured"
+  },
+  {
+    "id": "FND05-BP06",
+    "title": "Implement threat detection mechanisms",
+    "capability": "Security and compliance",
+    "cfatChecks": ["FR-4.3"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "GuardDuty org service enabled (guardduty.amazonaws.com)"
+  },
+  {
+    "id": "FND05-BP07",
+    "title": "Employ vulnerability and patch management controls",
+    "capability": "Security and compliance",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["inspector2:BatchGetAccountStatus"],
+    "check_logic": "Inspector enabled at org level"
+  },
+  {
+    "id": "FND05-BP08",
+    "title": "Establish security tooling for investigating incidents",
+    "capability": "Security and compliance",
+    "cfatChecks": ["FR-4.4"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "Security Hub org service enabled (securityhub.amazonaws.com)"
+  },
+  {
+    "id": "FND05-BP09",
+    "title": "Prepare forensics capabilities",
+    "capability": "Security and compliance",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": [],
+    "gap_reason": "Requires dedicated forensics account — org-specific design choice"
+  },
+  {
+    "id": "FND05-BP10",
+    "title": "Establish encryption and key management standards",
+    "capability": "Security and compliance",
+    "cfatChecks": [],
+    "phase": 2,
+    "automatable": true,
+    "apis": ["kms:ListKeys", "kms:DescribeKey", "s3:GetBucketEncryption"],
+    "check_logic": "KMS customer-managed keys exist; default S3 encryption configured"
+  },
+  {
+    "id": "FND06-BP01",
+    "title": "Configure detailed cost information sources",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": ["FR-7.7"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["cur:DescribeReportDefinitions"]
+  },
+  {
+    "id": "FND06-BP02",
+    "title": "Standardize cost attribution categories",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": ["FR-3.7"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListRoots"],
+    "check_logic": "Tag Policy enabled (supports cost allocation tagging)"
+  },
+  {
+    "id": "FND06-BP03",
+    "title": "Configure billing and cost management tools",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": ["FR-4.10"],
+    "phase": 1,
+    "automatable": true,
+    "apis": ["organizations:ListAWSServiceAccessForOrganization"],
+    "check_logic": "Cost Optimization Hub org service enabled"
+  },
+  {
+    "id": "FND06-BP04",
+    "title": "Optimize software licensing and third-party agreements",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": ["license-manager:ListLicenseConfigurations"],
+    "gap_reason": "Niche — License Manager adoption varies greatly"
+  },
+  {
+    "id": "FND06-BP05",
+    "title": "Establish organizational metrics to track optimization efforts",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Requires CUR analysis — separate tooling (Cost Optimization Template handles this)"
+  },
+  {
+    "id": "FND06-BP06",
+    "title": "Build strategies for commitment discounts and volume-based pricing",
+    "capability": "Cloud Financial Management",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": false,
+    "apis": [],
+    "gap_reason": "Business decision — Savings Plans/RI strategy is customer-specific"
+  },
+  {
+    "id": "FND07-BP01",
+    "title": "Define your network and connectivity strategy and centralized resources",
+    "capability": "Networking and connectivity",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": "partial",
+    "apis": ["ec2:DescribeTransitGateways", "ec2:DescribeVpcs"],
+    "gap_reason": "Architecture-specific — TGW vs VPC peering vs PrivateLink varies per customer"
+  },
+  {
+    "id": "FND07-BP02",
+    "title": "Implement centralized network protection controls",
+    "capability": "Networking and connectivity",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["network-firewall:ListFirewalls", "wafv2:ListWebACLs"],
+    "gap_reason": "Requires multi-account scan to verify Network Firewall/WAF deployment"
+  },
+  {
+    "id": "FND07-BP03",
+    "title": "Establish centralized DNS management",
+    "capability": "Networking and connectivity",
+    "cfatChecks": [],
+    "phase": 3,
+    "automatable": true,
+    "apis": ["route53resolver:ListResolverRules", "ram:GetResourceShares"],
+    "gap_reason": "Requires checking Route 53 Resolver rules shared via RAM"
+  }
+]

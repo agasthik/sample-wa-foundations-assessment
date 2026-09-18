@@ -1,0 +1,399 @@
+"""Organization Governance Checks (FR-3).
+
+Checks AWS Organizations structure: org exists, accounts, OUs, policies.
+Only runs if the current account is the management account.
+"""
+
+import boto3
+from botocore.exceptions import ClientError
+
+
+def check_org_exists():
+    """FR-3.1: Verify an AWS Organization exists."""
+    result = {
+        "check": "AWS Organization exists",
+        "description": "An AWS Organization should be established for multi-account management.",
+        "status": "incomplete",
+        "required": True,
+        "weight": 6,
+        "loe": 1,
+        "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_create.html",
+    }
+    try:
+        client = boto3.client("organizations")
+        resp = client.describe_organization()
+        org_exists = "Organization" in resp and "Id" in resp["Organization"]
+        result["status"] = "complete" if org_exists else "incomplete"
+        return result
+    except ClientError as e:
+        # A standalone account legitimately has no organization — that is an
+        # "incomplete" gap to close, not an error. Any other API failure
+        # (AccessDenied, throttling, etc.) leaves the posture unknown → error.
+        if e.response["Error"]["Code"] == "AWSOrganizationsNotInUseException":
+            result["status"] = "incomplete"
+            return result
+        result["status"] = "error"
+        result["error"] = str(e)
+        return result
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = str(e)
+        return result
+
+
+def check_management_account(account_info):
+    """FR-3.2: Verify running from the management account."""
+    is_mgmt = account_info.get("is_management_account", False)
+    return {
+        "check": "Management account identified",
+        "description": "Assessment should be run from the organization management account.",
+        "status": "complete" if is_mgmt else "incomplete",
+        "required": True,
+        "weight": 6,
+        "loe": 1,
+        "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts.html",
+    }
+
+
+def check_minimum_accounts():
+    """FR-3.3: Verify at least 4 accounts exist in the organization."""
+    try:
+        client = boto3.client("organizations")
+        accounts = []
+        paginator = client.get_paginator("list_accounts")
+        for page in paginator.paginate():
+            accounts.extend(page.get("Accounts", []))
+
+        return {
+            "check": "Minimum 4 accounts",
+            "description": "Organization should have at least 4 accounts (Management, Log Archive, Audit, Workload).",
+            "status": "complete" if len(accounts) >= 4 else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Minimum 4 accounts",
+            "description": "Organization should have at least 4 accounts (Management, Log Archive, Audit, Workload).",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html",
+            "error": str(e),
+        }
+
+
+def check_log_archive_account():
+    """FR-3.4: Verify a Log Archive account exists."""
+    try:
+        client = boto3.client("organizations")
+        accounts = []
+        paginator = client.get_paginator("list_accounts")
+        for page in paginator.paginate():
+            accounts.extend(page.get("Accounts", []))
+
+        found = any(a.get("Name", "").lower() == "log archive" for a in accounts)
+        return {
+            "check": "Log Archive account exists",
+            "description": "A dedicated Log Archive account should exist for centralized logging.",
+            "status": "complete" if found else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/log-archive.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Log Archive account exists",
+            "description": "A dedicated Log Archive account should exist for centralized logging.",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/log-archive.html",
+            "error": str(e),
+        }
+
+
+def check_audit_account():
+    """FR-3.5: Verify an Audit/Security Tooling account exists."""
+    try:
+        client = boto3.client("organizations")
+        accounts = []
+        paginator = client.get_paginator("list_accounts")
+        for page in paginator.paginate():
+            accounts.extend(page.get("Accounts", []))
+
+        found = any(
+            a.get("Name", "").lower() in ("audit", "security tooling") for a in accounts
+        )
+        return {
+            "check": "Audit account exists",
+            "description": "A dedicated Audit or Security Tooling account should exist.",
+            "status": "complete" if found else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Audit account exists",
+            "description": "A dedicated Audit or Security Tooling account should exist.",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html",
+            "error": str(e),
+        }
+
+
+def _get_policy_types():
+    """Helper: get policy types from organization root."""
+    client = boto3.client("organizations")
+    resp = client.list_roots()
+    roots = resp.get("Roots", [])
+    if not roots:
+        return []
+    return roots[0].get("PolicyTypes", [])
+
+
+def check_scp_enabled():
+    """FR-3.6: Verify Service Control Policies are enabled."""
+    try:
+        policy_types = _get_policy_types()
+        enabled = any(
+            pt.get("Type") == "SERVICE_CONTROL_POLICY" and pt.get("Status") == "ENABLED"
+            for pt in policy_types
+        )
+        return {
+            "check": "Service Control Policies enabled",
+            "description": "SCPs should be enabled to enforce guardrails across the organization.",
+            "status": "complete" if enabled else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Service Control Policies enabled",
+            "description": "SCPs should be enabled to enforce guardrails across the organization.",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html",
+            "error": str(e),
+        }
+
+
+def check_tag_policy_enabled():
+    """FR-3.7: Verify Tag Policies are enabled."""
+    try:
+        policy_types = _get_policy_types()
+        enabled = any(
+            pt.get("Type") == "TAG_POLICY" and pt.get("Status") == "ENABLED"
+            for pt in policy_types
+        )
+        return {
+            "check": "Tag Policies enabled",
+            "description": "Tag Policies should be enabled for consistent resource tagging and cost allocation.",
+            "status": "complete" if enabled else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Tag Policies enabled",
+            "description": "Tag Policies should be enabled for consistent resource tagging and cost allocation.",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html",
+            "error": str(e),
+        }
+
+
+def check_backup_policy_enabled():
+    """FR-3.8: Verify Backup Policies are enabled."""
+    try:
+        policy_types = _get_policy_types()
+        enabled = any(
+            pt.get("Type") == "BACKUP_POLICY" and pt.get("Status") == "ENABLED"
+            for pt in policy_types
+        )
+        return {
+            "check": "Backup Policies enabled",
+            "description": "Backup Policies should be enabled for centralized backup governance.",
+            "status": "complete" if enabled else "incomplete",
+            "required": False,
+            "weight": 5,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_backup.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Backup Policies enabled",
+            "description": "Backup Policies should be enabled for centralized backup governance.",
+            "status": "error",
+            "required": False,
+            "weight": 5,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_backup.html",
+            "error": str(e),
+        }
+
+
+def check_rcp_enabled():
+    """FR-3.9: Verify Resource Control Policies are enabled."""
+    try:
+        policy_types = _get_policy_types()
+        enabled = any(
+            pt.get("Type") == "RESOURCE_CONTROL_POLICY"
+            and pt.get("Status") == "ENABLED"
+            for pt in policy_types
+        )
+        return {
+            "check": "Resource Control Policies enabled",
+            "description": "RCPs should be enabled for data perimeter controls.",
+            "status": "complete" if enabled else "incomplete",
+            "required": False,
+            "weight": 4,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Resource Control Policies enabled",
+            "description": "RCPs should be enabled for data perimeter controls.",
+            "status": "error",
+            "required": False,
+            "weight": 4,
+            "loe": 1,
+            "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html",
+            "error": str(e),
+        }
+
+
+def _get_top_level_ous():
+    """Helper: get top-level OUs under the root."""
+    client = boto3.client("organizations")
+    roots_resp = client.list_roots()
+    roots = roots_resp.get("Roots", [])
+    if not roots:
+        return []
+
+    root_id = roots[0]["Id"]
+    ous = []
+    paginator = client.get_paginator("list_organizational_units_for_parent")
+    for page in paginator.paginate(ParentId=root_id):
+        ous.extend(page.get("OrganizationalUnits", []))
+    return ous
+
+
+def check_security_ou():
+    """FR-3.10: Verify a Security OU exists at root level."""
+    try:
+        ous = _get_top_level_ous()
+        found = any(ou.get("Name", "").lower() == "security" for ou in ous)
+        return {
+            "check": "Security OU exists",
+            "description": "A Security OU should exist at the root level for security accounts.",
+            "status": "complete" if found else "incomplete",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Security OU exists",
+            "description": "A Security OU should exist at the root level for security accounts.",
+            "status": "error",
+            "required": True,
+            "weight": 6,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html",
+            "error": str(e),
+        }
+
+
+def check_workloads_ou():
+    """FR-3.11: Verify a Workloads OU exists at root level."""
+    try:
+        ous = _get_top_level_ous()
+        found = any(ou.get("Name", "").lower() == "workloads" for ou in ous)
+        return {
+            "check": "Workloads OU exists",
+            "description": "A Workloads OU should exist for business application accounts.",
+            "status": "complete" if found else "incomplete",
+            "required": False,
+            "weight": 5,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Workloads OU exists",
+            "description": "A Workloads OU should exist for business application accounts.",
+            "status": "error",
+            "required": False,
+            "weight": 5,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html",
+            "error": str(e),
+        }
+
+
+def check_infrastructure_ou():
+    """FR-3.12: Verify an Infrastructure OU exists at root level."""
+    try:
+        ous = _get_top_level_ous()
+        found = any(ou.get("Name", "").lower() == "infrastructure" for ou in ous)
+        return {
+            "check": "Infrastructure OU exists",
+            "description": "An Infrastructure OU should exist for shared infrastructure services.",
+            "status": "complete" if found else "incomplete",
+            "required": False,
+            "weight": 5,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html",
+        }
+    except Exception as e:
+        return {
+            "check": "Infrastructure OU exists",
+            "description": "An Infrastructure OU should exist for shared infrastructure services.",
+            "status": "error",
+            "required": False,
+            "weight": 5,
+            "loe": 2,
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html",
+            "error": str(e),
+        }
+
+
+def run_all():
+    """Run all organization governance checks (FR-3.3 through FR-3.12).
+
+    FR-3.1 and FR-3.2 are handled separately (called from main.py with account_info).
+    """
+    return [
+        check_minimum_accounts(),
+        check_log_archive_account(),
+        check_audit_account(),
+        check_scp_enabled(),
+        check_tag_policy_enabled(),
+        check_backup_policy_enabled(),
+        check_rcp_enabled(),
+        check_security_ou(),
+        check_workloads_ou(),
+        check_infrastructure_ou(),
+    ]

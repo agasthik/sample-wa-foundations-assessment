@@ -1,0 +1,134 @@
+name: Feature request
+description: Suggest a new check, service integration, report enhancement, or other improvement
+title: "[Feature]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Keep public requests non-sensitive
+
+        Public issues are visible to everyone. Do not include credentials, customer data, AWS account IDs, resource ARNs, vulnerability details, exploit code, or other sensitive information.
+
+        Use the **Security topic (public)** form for general security questions. Report suspected vulnerabilities privately through this repository's **Security** tab by selecting **Report a vulnerability**.
+
+  - type: checkboxes
+    id: acknowledgment
+    attributes:
+      label: Public disclosure acknowledgment
+      options:
+        - label: This request contains no vulnerability details, credentials, customer data, account identifiers, resource identifiers, or other sensitive information.
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      options:
+        - New assessment check
+        - Support for an additional AWS service or API
+        - Existing check enhancement
+        - Maturity scoring or capability radar
+        - Deployment or account-mode behavior
+        - HTML, CSV, or JSON report
+        - Well-Architected Foundations mapping (.kiro/specs)
+        - Documentation
+        - Tests or development tooling
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: aws_service
+    attributes:
+      label: AWS service or API
+      description: Identify the relevant AWS service or read/describe/list API when applicable.
+      placeholder: "Example: organizations:ListDelegatedAdministrators"
+    validations:
+      required: false
+
+  - type: input
+    id: check_ref
+    attributes:
+      label: Related check name or requirement (FR-#)
+      description: List existing check display names or FR-# numbers when applicable.
+      placeholder: "Example: FR-4 org service integrations"
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or governance use case
+      description: Describe the gap, best practice, workflow, or user need this proposal addresses.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or outcome you would like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: check_behavior
+    attributes:
+      label: Proposed check behavior
+      description: For assessment changes, describe the outcomes when known. Remember WAFA is read-only — checks only call read/describe/list APIs.
+      placeholder: |
+        complete (best practice met):
+        incomplete (best practice not met):
+        error (API unavailable / access denied):
+    validations:
+      required: false
+
+  - type: dropdown
+    id: account_scope
+    attributes:
+      label: Account scope
+      options:
+        - Management account only (org-wide checks)
+        - Per-account (management, member, and standalone)
+        - Both
+        - Not applicable
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe workarounds or alternative designs you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Add non-sensitive AWS documentation, Well-Architected guidance, or related issue links.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to contribute an implementation?
+      options:
+        - "Yes"
+        - "No"
+        - Maybe, with guidance
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add other non-sensitive information or screenshots.
+    validations:
+      required: false

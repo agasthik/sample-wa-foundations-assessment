@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# macOS
+.DS_Store
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+
+# Local tooling state
+.holmes/
+.ash/
+
+
+# Generated artifacts
+reports/
+*.zip
+
+# Ignore
+archive/

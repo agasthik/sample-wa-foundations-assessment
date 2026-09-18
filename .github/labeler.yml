@@ -1,0 +1,39 @@
+checks:
+  - changed-files:
+    - any-glob-to-any-file: 'src/checks/**'
+
+discovery:
+  - changed-files:
+    - any-glob-to-any-file: 'src/discovery/**'
+
+report:
+  - changed-files:
+    - any-glob-to-any-file: 'src/report/**'
+
+deployment:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'deployment/**'
+      - 'deploy.sh'
+      - 'buildspec.yml'
+      - 'run.sh'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - '*.md'
+
+specs:
+  - changed-files:
+    - any-glob-to-any-file: '.kiro/specs/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+      - '.gitlab-ci.yml'
