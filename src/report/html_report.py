@@ -9,7 +9,6 @@ Generates an interactive HTML report with:
 - Light/dark mode toggle
 """
 
-import base64
 import math
 from html import escape as html_escape
 
@@ -126,7 +125,23 @@ def _build_radar_svg(axis_scores):
             point(radius * score / 100, index) for index, (_, score) in enumerate(axes)
         )
     )
+    # The SVG is inlined into the HTML (not a data-URI image), so the label
+    # color follows the page theme via the .radar-label CSS class (near-black on
+    # light, white on dark). font-size is in SVG user units; the viewBox is
+    # scaled down to the chart container (~500px), so keep it large enough to
+    # stay legible after that scale.
+    label_font_size = 18
+    # Conservative average glyph width as a fraction of font-size (proportional
+    # font). Deliberately on the high side so the computed extents slightly
+    # over-estimate and labels never clip.
+    char_w = label_font_size * 0.62
+
     labels = []
+    # Track how far label text extends left/right so we can size the viewBox to
+    # fit the longest one (rather than hand-tuning a fixed pad that clips when a
+    # label is long).
+    min_extent = 0.0
+    max_extent = float(width)
     for index, (label, score) in enumerate(axes):
         x, y = point(labels_radius, index)
         anchor = "middle"
@@ -134,22 +149,34 @@ def _build_radar_svg(axis_scores):
             anchor = "end"
         elif x > center + 20:
             anchor = "start"
-        # The chart is embedded as a static data-URI image, so it cannot inherit
-        # the page's light/dark theme. Use a single mid-gray fill with enough
-        # contrast to read on both the light card (#f8f9fa) and the dark card
-        # (#16213e). No stroke/halo — an outline reads as a blurry glow on dark.
+
+        text = f"{label} ({score}%)"
+        # Width is based on the *rendered* character count. html_escape (applied
+        # below) expands entities like '&' -> '&amp;', but the browser draws them
+        # as one glyph, so measure the un-escaped text to size the viewBox right.
+        text_w = len(text) * char_w
+        # Compute the text's left/right extent based on its anchor.
+        if anchor == "start":
+            left, right = x, x + text_w
+        elif anchor == "end":
+            left, right = x - text_w, x
+        else:
+            left, right = x - text_w / 2, x + text_w / 2
+        min_extent = min(min_extent, left)
+        max_extent = max(max_extent, right)
+
         labels.append(
             f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
-            'dominant-baseline="middle" fill="#8a8f98" font-size="12">'
-            f"{html_escape(label)} ({score}%)</text>"
+            f'dominant-baseline="middle" class="radar-label" font-size="{label_font_size}">'
+            f"{html_escape(text)}</text>"
         )
 
-    # Pad the viewBox horizontally so long axis labels (anchored out at
-    # labels_radius) are not clipped at the left/right edges.
-    pad_x = 150
-    view_min_x = -pad_x
-    view_width = width + 2 * pad_x
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view_min_x} 0 {view_width} {width}" role="img"
+    # Size the viewBox to the actual label extents, with a small margin, so long
+    # axis labels are never clipped at the edges.
+    margin = 12
+    view_min_x = min_extent - margin
+    view_width = (max_extent - min_extent) + 2 * margin
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view_min_x:.1f} 0 {view_width:.1f} {width}" role="img"
     aria-label="WA Foundations capability coverage radar chart">
     <title>WA Foundations capability coverage</title>
     {grid}
@@ -161,9 +188,13 @@ def _build_radar_svg(axis_scores):
 
 
 def _encode_radar_svg(axis_scores):
-    """Encode the generated radar SVG for safe embedding in an image."""
-    svg = _build_radar_svg(axis_scores)
-    return base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    """Return the radar SVG markup for inlining directly in the report HTML.
+
+    The SVG is inlined (rather than embedded as a base64 data-URI image) so the
+    label text can follow the page's light/dark theme via CSS. It remains fully
+    self-contained, so the report still renders without any network access.
+    """
+    return _build_radar_svg(axis_scores)
 
 
 def generate_html(checks, maturity, delegated_admins=None, account_info=None):
@@ -203,7 +234,7 @@ def generate_html(checks, maturity, delegated_admins=None, account_info=None):
         delegated_admins=delegated_admins,
         account_info=account_info,
         axis_scores=axis_scores,
-        radar_svg_base64=_encode_radar_svg(axis_scores),
+        radar_svg=_encode_radar_svg(axis_scores),
         total=total,
         complete=complete,
         incomplete=incomplete,
@@ -308,7 +339,10 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
 .stat-incomplete .stat-value { color: var(--incomplete); }
 .stat-error .stat-value { color: var(--error); }
 .chart-container { max-width: 500px; margin: 0 auto; }
-.chart-container img { display: block; width: 100%; height: auto; }
+.chart-container svg { display: block; width: 100%; height: auto; }
+/* Radar axis labels follow the theme: near-black on light, white on dark. */
+.radar-label { fill: #1a1a2e; font-weight: 600; }
+[data-theme="dark"] .radar-label { fill: #ffffff; }
 .filters { margin: 1rem 0; }
 .filters button {
     padding: 0.4rem 1rem;
@@ -404,11 +438,8 @@ a { color: var(--accent); }
 <!-- Radar Chart -->
 <div class="card">
     <h2>Capability Coverage (WA Foundations)</h2>
-    <div class="chart-container">
-        <img
-            id="radarChart"
-            src="data:image/svg+xml;base64,{{ radar_svg_base64 }}"
-            alt="WA Foundations capability coverage radar chart">
+    <div class="chart-container" id="radarChart">
+        {{ radar_svg | safe }}
     </div>
 </div>
 

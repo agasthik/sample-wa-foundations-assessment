@@ -1,7 +1,5 @@
 """Unit tests for src/report/ — FR-10: Report Generation."""
 
-import base64
-
 from src.report.html_report import generate_html, _calculate_axis_scores
 from src.report.csv_export import generate_csv
 
@@ -111,20 +109,20 @@ class TestGenerateHtml:
         html = generate_html(checks, maturity)
 
         assert 'id="radarChart"' in html
-        assert "data:image/svg+xml;base64," in html
-        encoded_svg = html.split("data:image/svg+xml;base64,", 1)[1].split('"', 1)[0]
-        svg = base64.b64decode(encoded_svg).decode("utf-8")
-        # The SVG must declare the SVG namespace, otherwise browsers refuse to
-        # render it when it is loaded through an <img> data URI (broken image).
+        # The SVG is inlined directly in the HTML (not a base64 data-URI image)
+        # so the label text can follow the page's light/dark theme via CSS.
+        assert "data:image/svg+xml;base64," not in html
+        svg = html.split("<svg ", 1)[1].split("</svg>", 1)[0]
+        # Namespace still declared (harmless when inline, required if extracted).
         assert 'xmlns="http://www.w3.org/2000/svg"' in svg
-        assert "<svg " in svg
-        # Labels use a single theme-neutral gray so they stay legible on both
-        # light and dark cards (the chart is a static image and cannot inherit
-        # the page theme). No stroke/halo (it reads as a blur on dark), and NOT
-        # the old near-black fill (invisible in dark mode).
-        assert 'fill="#8a8f98"' in svg
-        assert "paint-order" not in svg
+        # Labels are theme-aware via the .radar-label class (near-black on light,
+        # white on dark) — no hardcoded per-label fill in the SVG.
+        assert 'class="radar-label"' in svg
         assert 'fill="#1a1a2e"' not in svg
+        assert 'fill="#8a8f98"' not in svg
+        # The theme CSS rules drive the label color.
+        assert ".radar-label" in html
+        assert '[data-theme="dark"] .radar-label' in html
         # The viewBox is padded horizontally so long axis labels are not clipped.
         view_box = svg.split('viewBox="', 1)[1].split('"', 1)[0]
         min_x, _, view_w, _ = (float(v) for v in view_box.split())

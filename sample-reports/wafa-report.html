@@ -94,7 +94,10 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
 .stat-incomplete .stat-value { color: var(--incomplete); }
 .stat-error .stat-value { color: var(--error); }
 .chart-container { max-width: 500px; margin: 0 auto; }
-.chart-container img { display: block; width: 100%; height: auto; }
+.chart-container svg { display: block; width: 100%; height: auto; }
+/* Radar axis labels follow the theme: near-black on light, white on dark. */
+.radar-label { fill: #1a1a2e; font-weight: 600; }
+[data-theme="dark"] .radar-label { fill: #ffffff; }
 .filters { margin: 1rem 0; }
 .filters button {
     padding: 0.4rem 1rem;
@@ -182,11 +185,25 @@ a { color: var(--accent); }
 <!-- Radar Chart -->
 <div class="card">
     <h2>Capability Coverage (WA Foundations)</h2>
-    <div class="chart-container">
-        <img
-            id="radarChart"
-            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii0xNTAgMCA4NjAgNTYwIiByb2xlPSJpbWciCiAgICBhcmlhLWxhYmVsPSJXQSBGb3VuZGF0aW9ucyBjYXBhYmlsaXR5IGNvdmVyYWdlIHJhZGFyIGNoYXJ0Ij4KICAgIDx0aXRsZT5XQSBGb3VuZGF0aW9ucyBjYXBhYmlsaXR5IGNvdmVyYWdlPC90aXRsZT4KICAgIDxwb2x5Z29uIHBvaW50cz0iMjgwLjAsMjMzLjggMzE2LjIsMjUxLjIgMzI1LjEsMjkwLjMgMzAwLjEsMzIxLjcgMjU5LjksMzIxLjcgMjM0LjksMjkwLjMgMjQzLjgsMjUxLjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KPHBvbHlnb24gcG9pbnRzPSIyODAuMCwxODcuNSAzNTIuMywyMjIuMyAzNzAuMiwzMDAuNiAzMjAuMSwzNjMuMyAyMzkuOSwzNjMuMyAxODkuOCwzMDAuNiAyMDcuNywyMjIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWFhMGE2IiBzdHJva2Utb3BhY2l0eT0iMC4zNSIvPgo8cG9seWdvbiBwb2ludHM9IjI4MC4wLDE0MS4yIDM4OC41LDE5My41IDQxNS4zLDMxMC45IDM0MC4yLDQwNS4wIDIxOS44LDQwNS4wIDE0NC43LDMxMC45IDE3MS41LDE5My41IiBmaWxsPSJub25lIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+Cjxwb2x5Z29uIHBvaW50cz0iMjgwLjAsOTUuMCA0MjQuNiwxNjQuNyA0NjAuNCwzMjEuMiAzNjAuMyw0NDYuNyAxOTkuNyw0NDYuNyA5OS42LDMyMS4yIDEzNS40LDE2NC43IiBmaWxsPSJub25lIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CiAgICA8bGluZSB4MT0iMjgwIiB5MT0iMjgwIiB4Mj0iMjgwLjAiIHkyPSI5NS4wIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI0MjQuNiIgeTI9IjE2NC43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI0NjAuNCIgeTI9IjMyMS4yIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSIzNjAuMyIgeTI9IjQ0Ni43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSIxOTkuNyIgeTI9IjQ0Ni43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI5OS42IiB5Mj0iMzIxLjIiIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KPGxpbmUgeDE9IjI4MCIgeTE9IjI4MCIgeDI9IjEzNS40IiB5Mj0iMTY0LjciIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KICAgIDxwb2x5Z29uIHBvaW50cz0iMjgwLjAsMTI2LjQgNDAwLjEsMTg0LjMgNDYwLjQsMzIxLjIgMzYwLjMsNDQ2LjcgMjE5LjgsNDA1LjAgMTU5LjIsMzA3LjYgMjgwLjAsMjgwLjAiIGZpbGw9IiNmZjk5MDAiIGZpbGwtb3BhY2l0eT0iMC4yMiIKICAgICAgICBzdHJva2U9IiNmZjk5MDAiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPHRleHQgeD0iMjgwLjAiIHk9IjQ1LjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM4YThmOTgiIGZvbnQtc2l6ZT0iMTIiPk11bHRpLUFjY291bnQgRW52aXJvbm1lbnQgKDgzJSk8L3RleHQ+PHRleHQgeD0iNDYzLjciIHk9IjEzMy41IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM4YThmOTgiIGZvbnQtc2l6ZT0iMTIiPklkZW50aXR5ICZhbXA7IEFjY2VzcyBNYW5hZ2VtZW50ICg4MyUpPC90ZXh0Pjx0ZXh0IHg9IjUwOS4xIiB5PSIzMzIuMyIgdGV4dC1hbmNob3I9InN0YXJ0IiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjOGE4Zjk4IiBmb250LXNpemU9IjEyIj5DZW50cmFsIE9ic2VydmFiaWxpdHkgKDEwMCUpPC90ZXh0Pjx0ZXh0IHg9IjM4Mi4wIiB5PSI0OTEuNyIgdGV4dC1hbmNob3I9InN0YXJ0IiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjOGE4Zjk4IiBmb250LXNpemU9IjEyIj5SZXNvdXJjZSAmYW1wOyBJbnZlbnRvcnkgTWFuYWdlbWVudCAoMTAwJSk8L3RleHQ+PHRleHQgeD0iMTc4LjAiIHk9IjQ5MS43IiB0ZXh0LWFuY2hvcj0iZW5kIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjOGE4Zjk4IiBmb250LXNpemU9IjEyIj5TZWN1cml0eSAmYW1wOyBDb21wbGlhbmNlICg3NSUpPC90ZXh0Pjx0ZXh0IHg9IjUwLjkiIHk9IjMzMi4zIiB0ZXh0LWFuY2hvcj0iZW5kIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjOGE4Zjk4IiBmb250LXNpemU9IjEyIj5DbG91ZCBGaW5hbmNpYWwgTWFuYWdlbWVudCAoNjclKTwvdGV4dD48dGV4dCB4PSI5Ni4zIiB5PSIxMzMuNSIgdGV4dC1hbmNob3I9ImVuZCIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzhhOGY5OCIgZm9udC1zaXplPSIxMiI+TmV0d29ya2luZyAmYW1wOyBDb25uZWN0aXZpdHkgKDAlKTwvdGV4dD4KPC9zdmc+"
-            alt="WA Foundations capability coverage radar chart">
+    <div class="chart-container" id="radarChart">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-318.2 0 1173.4 560" role="img"
+    aria-label="WA Foundations capability coverage radar chart">
+    <title>WA Foundations capability coverage</title>
+    <polygon points="280.0,233.8 316.2,251.2 325.1,290.3 300.1,321.7 259.9,321.7 234.9,290.3 243.8,251.2" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<polygon points="280.0,187.5 352.3,222.3 370.2,300.6 320.1,363.3 239.9,363.3 189.8,300.6 207.7,222.3" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<polygon points="280.0,141.2 388.5,193.5 415.3,310.9 340.2,405.0 219.8,405.0 144.7,310.9 171.5,193.5" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<polygon points="280.0,95.0 424.6,164.7 460.4,321.2 360.3,446.7 199.7,446.7 99.6,321.2 135.4,164.7" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
+    <line x1="280" y1="280" x2="280.0" y2="95.0" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="424.6" y2="164.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="460.4" y2="321.2" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="360.3" y2="446.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="199.7" y2="446.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="99.6" y2="321.2" stroke="#9aa0a6" stroke-opacity="0.35"/>
+<line x1="280" y1="280" x2="135.4" y2="164.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
+    <polygon points="280.0,126.4 400.1,184.3 460.4,321.2 360.3,446.7 219.8,405.0 159.2,307.6 280.0,280.0" fill="#ff9900" fill-opacity="0.22"
+        stroke="#ff9900" stroke-width="2"/>
+    <text x="280.0" y="45.0" text-anchor="middle" dominant-baseline="middle" class="radar-label" font-size="18">Multi-Account Environment (83%)</text><text x="463.7" y="133.5" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Identity &amp; Access Management (83%)</text><text x="509.1" y="332.3" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Central Observability (100%)</text><text x="382.0" y="491.7" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Resource &amp; Inventory Management (100%)</text><text x="178.0" y="491.7" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Security &amp; Compliance (75%)</text><text x="50.9" y="332.3" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Cloud Financial Management (67%)</text><text x="96.3" y="133.5" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Networking &amp; Connectivity (0%)</text>
+</svg>
     </div>
 </div>
 
