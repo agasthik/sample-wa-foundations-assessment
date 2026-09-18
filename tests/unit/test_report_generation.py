@@ -118,7 +118,17 @@ class TestGenerateHtml:
         # render it when it is loaded through an <img> data URI (broken image).
         assert 'xmlns="http://www.w3.org/2000/svg"' in svg
         assert "<svg " in svg
-        assert 'fill="#1a1a2e"' in svg
+        # Labels use a single theme-neutral gray so they stay legible on both
+        # light and dark cards (the chart is a static image and cannot inherit
+        # the page theme). No stroke/halo (it reads as a blur on dark), and NOT
+        # the old near-black fill (invisible in dark mode).
+        assert 'fill="#8a8f98"' in svg
+        assert "paint-order" not in svg
+        assert 'fill="#1a1a2e"' not in svg
+        # The viewBox is padded horizontally so long axis labels are not clipped.
+        view_box = svg.split('viewBox="', 1)[1].split('"', 1)[0]
+        min_x, _, view_w, _ = (float(v) for v in view_box.split())
+        assert min_x < 0 and view_w > 560
 
     def test_html_contains_executive_summary(self):
         """HTML has total, complete, incomplete, error counts."""

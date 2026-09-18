@@ -134,13 +134,22 @@ def _build_radar_svg(axis_scores):
             anchor = "end"
         elif x > center + 20:
             anchor = "start"
+        # The chart is embedded as a static data-URI image, so it cannot inherit
+        # the page's light/dark theme. Use a single mid-gray fill with enough
+        # contrast to read on both the light card (#f8f9fa) and the dark card
+        # (#16213e). No stroke/halo — an outline reads as a blurry glow on dark.
         labels.append(
             f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" '
-            'dominant-baseline="middle" fill="#1a1a2e" font-size="12">'
+            'dominant-baseline="middle" fill="#8a8f98" font-size="12">'
             f"{html_escape(label)} ({score}%)</text>"
         )
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {width}" role="img"
+    # Pad the viewBox horizontally so long axis labels (anchored out at
+    # labels_radius) are not clipped at the left/right edges.
+    pad_x = 150
+    view_min_x = -pad_x
+    view_width = width + 2 * pad_x
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view_min_x} 0 {view_width} {width}" role="img"
     aria-label="WA Foundations capability coverage radar chart">
     <title>WA Foundations capability coverage</title>
     {grid}
