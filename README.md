@@ -1,6 +1,21 @@
-# WAFA — Well-Architected Foundations Assessment
+# WAFA: AWS Well-Architected Foundations Assessment
 
-Automated governance assessment for AWS Organizations. Evaluates your multi-account architecture against the AWS Well-Architected Foundations best practices and produces an actionable HTML report with remediation guidance.
+![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)
+![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
+![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen.svg)
+
+WAFA is an open-source, read-only tool that runs an automated AWS Well-Architected Foundations assessment across an AWS Organization. It evaluates your multi-account architecture, governance, and security posture against AWS Well-Architected Foundations best practices, then produces an actionable HTML maturity report with prioritized remediation guidance.
+
+Use it to benchmark landing zone maturity, prepare for a Well-Architected Framework Review (WAFR), or track multi-account governance and security posture over time.
+
+**Who is this for:** AWS administrators, cloud platform and DevOps engineers, and Solutions Architects who manage AWS Organizations, AWS Control Tower, or a multi-account landing zone.
+
+<!--
+Add a screenshot of the generated HTML report here. Keep the descriptive alt text:
+it is read by GitHub, search engines, and screen readers.
+
+![AWS Well-Architected Foundations assessment HTML report with a radar chart of seven capability axes and a maturity score](docs/report-screenshot.png)
+-->
 
 ## What It Checks
 
@@ -25,8 +40,8 @@ Automated governance assessment for AWS Organizations. Evaluates your multi-acco
 ### Option A: Deploy with one command (recommended)
 
 ```bash
-git clone <this-repo>
-cd wafa
+git clone https://github.com/aws-samples/sample-wa-foundations-assessment.git
+cd sample-wa-foundations-assessment
 ./deploy.sh --profile <your-aws-profile> --region us-east-1
 ```
 
@@ -64,8 +79,8 @@ This runs the assessment using your local credentials and saves reports to disk.
 ### Option C: CloudShell
 
 ```bash
-git clone <this-repo>
-cd wafa
+git clone https://github.com/aws-samples/sample-wa-foundations-assessment.git
+cd sample-wa-foundations-assessment
 pip install -q -r requirements.txt
 python -m src.main --output .
 ```
@@ -160,7 +175,7 @@ python -m pytest tests/unit/ --cov=src --cov-report=term-missing
 ## Project Structure
 
 ```
-wafa/
+sample-wa-foundations-assessment/
 ├── src/
 │   ├── main.py                  # Orchestrator
 │   ├── discovery/
@@ -187,6 +202,10 @@ wafa/
 └── requirements-dev.txt         # Dev deps (pytest, moto, coverage)
 ```
 
-## Specs
 
-See `.kiro/specs/` for the full requirements, design documents, and WA Foundations check mapping used to build this project.
+## Related AWS Resources
+
+- [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
+- [AWS Well-Architected Tool](https://aws.amazon.com/well-architected-tool/)
+- [AWS Organizations](https://aws.amazon.com/organizations/)
+- [AWS Control Tower](https://aws.amazon.com/controltower/)
