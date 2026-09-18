@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAFA Report</title>
+<style>
+:root {
+    --bg: #ffffff;
+    --text: #1a1a2e;
+    --card-bg: #f8f9fa;
+    --border: #e0e0e0;
+    --accent: #232f3e;
+    --complete: #1b8a4a;
+    --incomplete: #d13212;
+    --error: #8d6e00;
+    --progress-bg: #e9ecef;
+}
+[data-theme="dark"] {
+    --bg: #1a1a2e;
+    --text: #e0e0e0;
+    --card-bg: #16213e;
+    --border: #2a2a4a;
+    --accent: #ff9900;
+    --complete: #2ecc71;
+    --incomplete: #ff6b6b;
+    --error: #f39c12;
+    --progress-bg: #2a2a4a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    transition: all 0.3s;
+}
+h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.theme-toggle {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.maturity-badge {
+    display: inline-block;
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 0.5rem 1.5rem;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    margin-right: 1rem;
+}
+.maturity-info { display: flex; align-items: center; margin-bottom: 1rem; }
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--progress-bg);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 6px;
+    transition: width 0.5s;
+}
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.stat-item { text-align: center; }
+.stat-value { font-size: 2rem; font-weight: bold; }
+.stat-label { font-size: 0.85rem; opacity: 0.7; }
+.stat-complete .stat-value { color: var(--complete); }
+.stat-incomplete .stat-value { color: var(--incomplete); }
+.stat-error .stat-value { color: var(--error); }
+.chart-container { max-width: 500px; margin: 0 auto; }
+.chart-container img { display: block; width: 100%; height: auto; }
+.filters { margin: 1rem 0; }
+.filters button {
+    padding: 0.4rem 1rem;
+    margin-right: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+}
+.filters button.active { background: var(--accent); color: white; border-color: var(--accent); }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+th, td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+th { font-weight: 600; background: var(--card-bg); position: sticky; top: 0; }
+.status-complete { color: var(--complete); font-weight: 600; }
+.status-incomplete { color: var(--incomplete); font-weight: 600; }
+.status-error { color: var(--error); font-weight: 600; }
+a { color: var(--accent); }
+.next-steps li { margin: 0.3rem 0; }
+.assessment-scope-note {
+    margin: 1rem 0 0;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--accent);
+    background: var(--progress-bg);
+    font-size: 0.9rem;
+}
+.delegated-table { margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>WAFA Assessment Report</h1>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+</div>
+
+<!-- Maturity Level -->
+<div class="card">
+    <h2>Maturity Level</h2>
+    <div class="maturity-info">
+        <span class="maturity-badge">L2</span>
+        <div>
+            <strong>Established</strong>
+            <p style="opacity:0.8;font-size:0.9rem;">AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process.</p>
+        </div>
+    </div>
+    
+    
+    <p>Progress toward Level 3:</p>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: 87.5%"></div>
+    </div>
+    <p style="font-size:0.85rem;opacity:0.7;">87.5% complete</p>
+    
+    <h3 style="margin-top:1rem;font-size:1rem;">Next Steps (highest impact first):</h3>
+    <ol class="next-steps">
+        
+        <li>AWS Config recorder active</li>
+        
+    </ol>
+    
+    
+</div>
+
+<!-- Executive Summary -->
+<div class="card">
+    <h2>Executive Summary</h2>
+    <div class="stats">
+        <div class="stat-item"><div class="stat-value">35</div><div class="stat-label">Total Checks</div></div>
+        <div class="stat-item stat-complete"><div class="stat-value">30</div><div class="stat-label">Complete</div></div>
+        <div class="stat-item stat-incomplete"><div class="stat-value">4</div><div class="stat-label">Incomplete</div></div>
+        <div class="stat-item stat-error"><div class="stat-value">1</div><div class="stat-label">Errors</div></div>
+        <div class="stat-item"><div class="stat-value">86%</div><div class="stat-label">Completion</div></div>
+    </div>
+    <p style="font-size:0.85rem;opacity:0.7;">Account: 111111111111 (management)</p>
+</div>
+
+<!-- Radar Chart -->
+<div class="card">
+    <h2>Capability Coverage (WA Foundations)</h2>
+    <div class="chart-container">
+        <img
+            id="radarChart"
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1NjAgNTYwIiByb2xlPSJpbWciCiAgICBhcmlhLWxhYmVsPSJXQSBGb3VuZGF0aW9ucyBjYXBhYmlsaXR5IGNvdmVyYWdlIHJhZGFyIGNoYXJ0Ij4KICAgIDx0aXRsZT5XQSBGb3VuZGF0aW9ucyBjYXBhYmlsaXR5IGNvdmVyYWdlPC90aXRsZT4KICAgIDxwb2x5Z29uIHBvaW50cz0iMjgwLjAsMjMzLjggMzE2LjIsMjUxLjIgMzI1LjEsMjkwLjMgMzAwLjEsMzIxLjcgMjU5LjksMzIxLjcgMjM0LjksMjkwLjMgMjQzLjgsMjUxLjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KPHBvbHlnb24gcG9pbnRzPSIyODAuMCwxODcuNSAzNTIuMywyMjIuMyAzNzAuMiwzMDAuNiAzMjAuMSwzNjMuMyAyMzkuOSwzNjMuMyAxODkuOCwzMDAuNiAyMDcuNywyMjIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWFhMGE2IiBzdHJva2Utb3BhY2l0eT0iMC4zNSIvPgo8cG9seWdvbiBwb2ludHM9IjI4MC4wLDE0MS4yIDM4OC41LDE5My41IDQxNS4zLDMxMC45IDM0MC4yLDQwNS4wIDIxOS44LDQwNS4wIDE0NC43LDMxMC45IDE3MS41LDE5My41IiBmaWxsPSJub25lIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+Cjxwb2x5Z29uIHBvaW50cz0iMjgwLjAsOTUuMCA0MjQuNiwxNjQuNyA0NjAuNCwzMjEuMiAzNjAuMyw0NDYuNyAxOTkuNyw0NDYuNyA5OS42LDMyMS4yIDEzNS40LDE2NC43IiBmaWxsPSJub25lIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CiAgICA8bGluZSB4MT0iMjgwIiB5MT0iMjgwIiB4Mj0iMjgwLjAiIHkyPSI5NS4wIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI0MjQuNiIgeTI9IjE2NC43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI0NjAuNCIgeTI9IjMyMS4yIiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSIzNjAuMyIgeTI9IjQ0Ni43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSIxOTkuNyIgeTI9IjQ0Ni43IiBzdHJva2U9IiM5YWEwYTYiIHN0cm9rZS1vcGFjaXR5PSIwLjM1Ii8+CjxsaW5lIHgxPSIyODAiIHkxPSIyODAiIHgyPSI5OS42IiB5Mj0iMzIxLjIiIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KPGxpbmUgeDE9IjI4MCIgeTE9IjI4MCIgeDI9IjEzNS40IiB5Mj0iMTY0LjciIHN0cm9rZT0iIzlhYTBhNiIgc3Ryb2tlLW9wYWNpdHk9IjAuMzUiLz4KICAgIDxwb2x5Z29uIHBvaW50cz0iMjgwLjAsMTI2LjQgNDAwLjEsMTg0LjMgNDYwLjQsMzIxLjIgMzYwLjMsNDQ2LjcgMjE5LjgsNDA1LjAgMTU5LjIsMzA3LjYgMjgwLjAsMjgwLjAiIGZpbGw9IiNmZjk5MDAiIGZpbGwtb3BhY2l0eT0iMC4yMiIKICAgICAgICBzdHJva2U9IiNmZjk5MDAiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPHRleHQgeD0iMjgwLjAiIHk9IjQ1LjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiMxYTFhMmUiIGZvbnQtc2l6ZT0iMTIiPk11bHRpLUFjY291bnQgRW52aXJvbm1lbnQgKDgzJSk8L3RleHQ+PHRleHQgeD0iNDYzLjciIHk9IjEzMy41IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiMxYTFhMmUiIGZvbnQtc2l6ZT0iMTIiPklkZW50aXR5ICZhbXA7IEFjY2VzcyBNYW5hZ2VtZW50ICg4MyUpPC90ZXh0Pjx0ZXh0IHg9IjUwOS4xIiB5PSIzMzIuMyIgdGV4dC1hbmNob3I9InN0YXJ0IiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMWExYTJlIiBmb250LXNpemU9IjEyIj5DZW50cmFsIE9ic2VydmFiaWxpdHkgKDEwMCUpPC90ZXh0Pjx0ZXh0IHg9IjM4Mi4wIiB5PSI0OTEuNyIgdGV4dC1hbmNob3I9InN0YXJ0IiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMWExYTJlIiBmb250LXNpemU9IjEyIj5SZXNvdXJjZSAmYW1wOyBJbnZlbnRvcnkgTWFuYWdlbWVudCAoMTAwJSk8L3RleHQ+PHRleHQgeD0iMTc4LjAiIHk9IjQ5MS43IiB0ZXh0LWFuY2hvcj0iZW5kIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMWExYTJlIiBmb250LXNpemU9IjEyIj5TZWN1cml0eSAmYW1wOyBDb21wbGlhbmNlICg3NSUpPC90ZXh0Pjx0ZXh0IHg9IjUwLjkiIHk9IjMzMi4zIiB0ZXh0LWFuY2hvcj0iZW5kIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjMWExYTJlIiBmb250LXNpemU9IjEyIj5DbG91ZCBGaW5hbmNpYWwgTWFuYWdlbWVudCAoNjclKTwvdGV4dD48dGV4dCB4PSI5Ni4zIiB5PSIxMzMuNSIgdGV4dC1hbmNob3I9ImVuZCIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzFhMWEyZSIgZm9udC1zaXplPSIxMiI+TmV0d29ya2luZyAmYW1wOyBDb25uZWN0aXZpdHkgKDAlKTwvdGV4dD4KPC9zdmc+"
+            alt="WA Foundations capability coverage radar chart">
+    </div>
+</div>
+
+<!-- Check Results Table -->
+<div class="card">
+    <h2>Check Results</h2>
+    <div class="filters">
+        <button class="active" onclick="filterChecks('all', this)">All (35)</button>
+        <button onclick="filterChecks('complete', this)">Complete (30)</button>
+        <button onclick="filterChecks('incomplete', this)">Incomplete (4)</button>
+        <button onclick="filterChecks('error', this)">Errors (1)</button>
+    </div>
+    <table id="checksTable">
+        <thead>
+            <tr>
+                <th>Check</th>
+                <th>Status</th>
+                <th>Required</th>
+                <th>LoE</th>
+                <th>Remediation</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr data-status="complete">
+                <td title="An AWS Organization should be established for multi-account management.">AWS Organization exists</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_create.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Assessment should be run from the organization management account.">Management account identified</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Organization should have at least 4 accounts (Management, Log Archive, Audit, Workload).">Minimum 4 accounts</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="A dedicated Log Archive account should exist for centralized logging.">Log Archive account exists</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/log-archive.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="A dedicated Audit or Security Tooling account should exist.">Audit account exists</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="SCPs should be enabled to enforce guardrails across the organization.">Service Control Policies enabled</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Tag Policies should be enabled for consistent resource tagging and cost allocation.">Tag Policies enabled</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Backup Policies should be enabled for centralized backup governance.">Backup Policies enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_backup.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="incomplete">
+                <td title="RCPs should be enabled for data perimeter controls.">Resource Control Policies enabled</td>
+                <td class="status-incomplete">incomplete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="A Security OU should exist at the root level for security accounts.">Security OU exists</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="A Workloads OU should exist for business application accounts.">Workloads OU exists</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="incomplete">
+                <td title="An Infrastructure OU should exist for shared infrastructure services.">Infrastructure OU exists</td>
+                <td class="status-incomplete">incomplete</td>
+                <td>No</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="CloudTrail should be enabled as an organization service for centralized audit logging.">CloudTrail organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="AWS Config should be enabled as an organization service for resource tracking.">AWS Config organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/config-rule-multi-account-deployment.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="GuardDuty should be enabled as an organization service for threat detection.">GuardDuty organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_organizations.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="incomplete">
+                <td title="Security Hub should be enabled as an organization service for centralized security findings.">Security Hub organization service enabled</td>
+                <td class="status-incomplete">incomplete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/securityhub/latest/userguide/designate-orgs-admin-account.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="IAM Access Analyzer should be enabled for cross-account access analysis.">IAM Access Analyzer organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Resource Access Manager should be enabled for cross-account resource sharing.">RAM organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/ram/latest/userguide/getting-started-sharing.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="IAM Identity Center (SSO) should be enabled for centralized identity management.">IAM Identity Center organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="CloudFormation StackSets should be enabled for organization-wide deployments.">CloudFormation StackSets organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-enable-trusted-access.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="AWS Backup should be enabled as an organization service for centralized backup management.">AWS Backup organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/manage-cross-account.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Cost Optimization Hub should be enabled for organization-wide cost visibility.">Cost Optimization Hub organization service enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/cost-management/latest/userguide/coh-getting-started.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="AWS Control Tower should be deployed for automated multi-account governance.">Control Tower deployed</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>6</td>
+                <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Control Tower landing zone should not be in a drifted state.">Control Tower not drifted</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/drift.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Control Tower landing zone should be on the latest available version.">Control Tower latest version</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/configuration-updates.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="IAM Identity Center (SSO) should be configured for centralized identity management.">IAM Identity Center configured</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>3</td>
+                <td><a href="https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="The assessed account should avoid IAM users; use IAM Identity Center or federation instead.">No IAM users in account</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#bp-users-federation-idp" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="At least one CloudTrail trail should be configured for audit logging.">CloudTrail trail exists</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>3</td>
+                <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="An organization trail should be configured for centralized audit logging across all accounts.">CloudTrail organization trail</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="error">
+                <td title="AWS Config recorder should be active for resource configuration tracking.">AWS Config recorder active</td>
+                <td class="status-error">error</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="AWS Config delivery channel should be configured for configuration change delivery.">AWS Config delivery channel active</td>
+                <td class="status-complete">complete</td>
+                <td>Yes</td>
+                <td>2</td>
+                <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/manage-delivery-channel.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Reports whether the assessed account contains EC2 instances; centralized management accounts should keep workloads elsewhere.">No EC2 instances in account</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="Reports whether the assessed account contains VPCs; centralized management accounts should keep workloads elsewhere.">No VPCs in account</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="incomplete">
+                <td title="A Cost and Usage Report should be configured for cost visibility.">Cost and Usage Report configured</td>
+                <td class="status-incomplete">incomplete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/cur/latest/userguide/cur-create.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+            <tr data-status="complete">
+                <td title="CloudFormation StackSets should have organization access enabled for cross-account deployments.">StackSets organization access enabled</td>
+                <td class="status-complete">complete</td>
+                <td>No</td>
+                <td>1</td>
+                <td><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html" target="_blank" rel="noopener">Fix →</a></td>
+            </tr>
+            
+        </tbody>
+    </table>
+</div>
+
+
+<!-- Delegated Administrators -->
+<div class="card">
+    <h2>Delegated Administrators</h2>
+    <table class="delegated-table">
+        <thead>
+            <tr>
+                <th>Account ID</th>
+                <th>Account Name</th>
+                <th>Delegated Services</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr>
+                <td>333333333333</td>
+                <td>Audit</td>
+                <td>guardduty.amazonaws.com</td>
+            </tr>
+            
+        </tbody>
+    </table>
+</div>
+
+
+<script>
+// Filter
+function filterChecks(status, btn) {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#checksTable tbody tr').forEach(row => {
+        row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+    });
+}
+
+// Theme Toggle
+function toggleTheme() {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+</script>
+</body>
+</html>

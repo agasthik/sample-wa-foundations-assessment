@@ -1,0 +1,347 @@
+{
+  "account_info": {
+    "account_id": "111111111111",
+    "is_management_account": true,
+    "is_in_organization": true,
+    "organization_id": "o-example12345",
+    "management_account_id": "111111111111",
+    "account_type": "management"
+  },
+  "maturity": {
+    "level": 2,
+    "name": "Established",
+    "description": "AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process.",
+    "next_level": 3,
+    "next_level_progress": 87.5,
+    "next_level_checks_needed": [
+      "AWS Config recorder active"
+    ]
+  },
+  "checks": [
+    {
+      "check": "AWS Organization exists",
+      "description": "An AWS Organization should be established for multi-account management.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_create.html"
+    },
+    {
+      "check": "Management account identified",
+      "description": "Assessment should be run from the organization management account.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts.html"
+    },
+    {
+      "check": "Minimum 4 accounts",
+      "description": "Organization should have at least 4 accounts (Management, Log Archive, Audit, Workload).",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html"
+    },
+    {
+      "check": "Log Archive account exists",
+      "description": "A dedicated Log Archive account should exist for centralized logging.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/log-archive.html"
+    },
+    {
+      "check": "Audit account exists",
+      "description": "A dedicated Audit or Security Tooling account should exist.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html"
+    },
+    {
+      "check": "Service Control Policies enabled",
+      "description": "SCPs should be enabled to enforce guardrails across the organization.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html"
+    },
+    {
+      "check": "Tag Policies enabled",
+      "description": "Tag Policies should be enabled for consistent resource tagging and cost allocation.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html"
+    },
+    {
+      "check": "Backup Policies enabled",
+      "description": "Backup Policies should be enabled for centralized backup governance.",
+      "status": "complete",
+      "required": false,
+      "weight": 5,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_backup.html"
+    },
+    {
+      "check": "Resource Control Policies enabled",
+      "description": "RCPs should be enabled for data perimeter controls.",
+      "status": "incomplete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html"
+    },
+    {
+      "check": "Security OU exists",
+      "description": "A Security OU should exist at the root level for security accounts.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html"
+    },
+    {
+      "check": "Workloads OU exists",
+      "description": "A Workloads OU should exist for business application accounts.",
+      "status": "complete",
+      "required": false,
+      "weight": 5,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html"
+    },
+    {
+      "check": "Infrastructure OU exists",
+      "description": "An Infrastructure OU should exist for shared infrastructure services.",
+      "status": "incomplete",
+      "required": false,
+      "weight": 5,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html"
+    },
+    {
+      "check": "CloudTrail organization service enabled",
+      "description": "CloudTrail should be enabled as an organization service for centralized audit logging.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html"
+    },
+    {
+      "check": "AWS Config organization service enabled",
+      "description": "AWS Config should be enabled as an organization service for resource tracking.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/config/latest/developerguide/config-rule-multi-account-deployment.html"
+    },
+    {
+      "check": "GuardDuty organization service enabled",
+      "description": "GuardDuty should be enabled as an organization service for threat detection.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_organizations.html"
+    },
+    {
+      "check": "Security Hub organization service enabled",
+      "description": "Security Hub should be enabled as an organization service for centralized security findings.",
+      "status": "incomplete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/securityhub/latest/userguide/designate-orgs-admin-account.html"
+    },
+    {
+      "check": "IAM Access Analyzer organization service enabled",
+      "description": "IAM Access Analyzer should be enabled for cross-account access analysis.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html"
+    },
+    {
+      "check": "RAM organization service enabled",
+      "description": "Resource Access Manager should be enabled for cross-account resource sharing.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/ram/latest/userguide/getting-started-sharing.html"
+    },
+    {
+      "check": "IAM Identity Center organization service enabled",
+      "description": "IAM Identity Center (SSO) should be enabled for centralized identity management.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html"
+    },
+    {
+      "check": "CloudFormation StackSets organization service enabled",
+      "description": "CloudFormation StackSets should be enabled for organization-wide deployments.",
+      "status": "complete",
+      "required": false,
+      "weight": 5,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-enable-trusted-access.html"
+    },
+    {
+      "check": "AWS Backup organization service enabled",
+      "description": "AWS Backup should be enabled as an organization service for centralized backup management.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/aws-backup/latest/devguide/manage-cross-account.html"
+    },
+    {
+      "check": "Cost Optimization Hub organization service enabled",
+      "description": "Cost Optimization Hub should be enabled for organization-wide cost visibility.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/cost-management/latest/userguide/coh-getting-started.html"
+    },
+    {
+      "check": "Control Tower deployed",
+      "description": "AWS Control Tower should be deployed for automated multi-account governance.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 6,
+      "remediationLink": "https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html"
+    },
+    {
+      "check": "Control Tower not drifted",
+      "description": "Control Tower landing zone should not be in a drifted state.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/controltower/latest/userguide/drift.html"
+    },
+    {
+      "check": "Control Tower latest version",
+      "description": "Control Tower landing zone should be on the latest available version.",
+      "status": "complete",
+      "required": false,
+      "weight": 5,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/controltower/latest/userguide/configuration-updates.html"
+    },
+    {
+      "check": "IAM Identity Center configured",
+      "description": "IAM Identity Center (SSO) should be configured for centralized identity management.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 3,
+      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html"
+    },
+    {
+      "check": "No IAM users in account",
+      "description": "The assessed account should avoid IAM users; use IAM Identity Center or federation instead.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#bp-users-federation-idp"
+    },
+    {
+      "check": "CloudTrail trail exists",
+      "description": "At least one CloudTrail trail should be configured for audit logging.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 3,
+      "remediationLink": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html"
+    },
+    {
+      "check": "CloudTrail organization trail",
+      "description": "An organization trail should be configured for centralized audit logging across all accounts.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html"
+    },
+    {
+      "check": "AWS Config recorder active",
+      "description": "AWS Config recorder should be active for resource configuration tracking.",
+      "status": "error",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html",
+      "error": "An error occurred (AccessDeniedException) when calling the DescribeConfigurationRecorders operation: User is not authorized to perform: config:DescribeConfigurationRecorders"
+    },
+    {
+      "check": "AWS Config delivery channel active",
+      "description": "AWS Config delivery channel should be configured for configuration change delivery.",
+      "status": "complete",
+      "required": true,
+      "weight": 6,
+      "loe": 2,
+      "remediationLink": "https://docs.aws.amazon.com/config/latest/developerguide/manage-delivery-channel.html"
+    },
+    {
+      "check": "No EC2 instances in account",
+      "description": "Reports whether the assessed account contains EC2 instances; centralized management accounts should keep workloads elsewhere.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html"
+    },
+    {
+      "check": "No VPCs in account",
+      "description": "Reports whether the assessed account contains VPCs; centralized management accounts should keep workloads elsewhere.",
+      "status": "complete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html"
+    },
+    {
+      "check": "Cost and Usage Report configured",
+      "description": "A Cost and Usage Report should be configured for cost visibility.",
+      "status": "incomplete",
+      "required": false,
+      "weight": 4,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/cur/latest/userguide/cur-create.html"
+    },
+    {
+      "check": "StackSets organization access enabled",
+      "description": "CloudFormation StackSets should have organization access enabled for cross-account deployments.",
+      "status": "complete",
+      "required": false,
+      "weight": 5,
+      "loe": 1,
+      "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html"
+    }
+  ],
+  "delegated_administrators": [
+    {
+      "accountId": "333333333333",
+      "accountName": "Audit",
+      "services": [
+        "guardduty.amazonaws.com"
+      ]
+    }
+  ]
+}
