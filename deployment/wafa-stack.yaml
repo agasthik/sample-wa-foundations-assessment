@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Well-Architected Foundations Assessment (WAFA) — Automated governance assessment for
-  AWS Organizations. Deploys CodeBuild project, IAM role, S3 bucket, and optional
-  SNS notification.
+  Deploys the Well-Architected Foundations Assessment for AWS Organizations,
+  including automated AWS CodeBuild execution, scoped IAM permissions, encrypted
+  and versioned Amazon S3 report storage, and optional Amazon SNS email
+  notifications.
 
 Parameters:
   EmailAddress:
@@ -14,12 +15,12 @@ Parameters:
 
   SourceBucket:
     Type: String
-    Description: S3 bucket name containing the WAFA source zip.
+    Description: S3 bucket name containing the assessment source archive.
 
   SourceKey:
     Type: String
-    Default: 'wafa-source.zip'
-    Description: S3 object key for the source zip (used with SourceBucket).
+    Default: 'wa-foundations-source.zip'
+    Description: S3 object key for the assessment source archive.
 
 Conditions:
   CreateSNSTopic: !Not [!Equals [!Ref EmailAddress, '']]
@@ -30,7 +31,20 @@ Resources:
   # ============================================================================
   WAFAResultsBucket:
     Type: AWS::S3::Bucket
+    # Explicit naming avoids repetitive stack/logical-ID combinations. Retain
+    # the previous bucket if an earlier temporary stack is updated.
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
     Properties:
+      BucketName:
+        Fn::Join:
+          - ''
+          - - 'wa-foundations-results-'
+            - Fn::Select:
+                - 2
+                - Fn::Split:
+                    - '/'
+                    - !Ref 'AWS::StackId'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -43,10 +57,10 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
       LoggingConfiguration:
-        LogFilePrefix: wafa-access-logs/
+        LogFilePrefix: wa-foundations-access-logs/
       Tags:
         - Key: Application
-          Value: WAFA
+          Value: WA-Foundations-Assessment
 
   # ============================================================================
   # IAM Role — ReadOnly assessment permissions (FR-1.2, NFR-1.1, NFR-1.2)
@@ -54,7 +68,7 @@ Resources:
   WAFARole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'WAFAAssessmentRole-${AWS::StackName}'
+      RoleName: !Sub '${AWS::StackName}-codebuild-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -68,7 +82,7 @@ Resources:
   WAFAAssessmentPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      Description: Read-only assessment and report upload permissions for WAFA
+      Description: Read-only assessment and report upload permissions
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -123,13 +137,13 @@ Resources:
             Action:
               - logs:CreateLogGroup
             Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/WAFA-${AWS::StackName}'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}'
           - Effect: Allow
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
             Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/WAFA-${AWS::StackName}:*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}:*'
           # SNS publish (conditional)
           - !If
             - CreateSNSTopic
@@ -145,7 +159,7 @@ Resources:
   WAFAProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub 'WAFA-${AWS::StackName}'
+      Name: !Ref 'AWS::StackName'
       Description: Well-Architected Foundations Assessment — automated governance check
       Source:
         Type: S3
@@ -166,7 +180,7 @@ Resources:
       TimeoutInMinutes: 10
       Tags:
         - Key: Application
-          Value: WAFA
+          Value: WA-Foundations-Assessment
 
   # ============================================================================
   # SNS Topic — Optional notification (FR-1.2, FR-10.5)
@@ -175,7 +189,7 @@ Resources:
     Type: AWS::SNS::Topic
     Condition: CreateSNSTopic
     Properties:
-      TopicName: !Sub 'WAFA-Notifications-${AWS::StackName}'
+      TopicName: !Sub '${AWS::StackName}-notifications'
       KmsMasterKeyId: alias/aws/sns
 
   WAFANotificationSubscription:
@@ -205,7 +219,7 @@ Resources:
   WAFATriggerPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      Description: Permissions for the WAFA trigger Lambda
+      Description: Permissions for the assessment trigger Lambda
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -262,17 +276,17 @@ Resources:
 
 Outputs:
   ResultsBucket:
-    Description: S3 bucket containing WAFA assessment reports
+    Description: Name of the S3 bucket containing generated assessment reports
     Value: !Ref WAFAResultsBucket
 
   ResultsURL:
-    Description: S3 console URL for assessment results
+    Description: AWS Management Console URL for the assessment results bucket
     Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${WAFAResultsBucket}'
 
   CodeBuildProject:
-    Description: CodeBuild project name (click Start build to re-run)
+    Description: Name of the CodeBuild project used to run or re-run the assessment
     Value: !Ref WAFAProject
 
   CodeBuildConsoleURL:
-    Description: CodeBuild console URL
+    Description: AWS Management Console URL for the CodeBuild project build history
     Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/codesuite/codebuild/projects/${WAFAProject}/history'

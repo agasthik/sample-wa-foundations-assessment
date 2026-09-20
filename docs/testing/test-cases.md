@@ -72,7 +72,7 @@ being scoped to the deploy region. Test case D3 proves the multi-region scan wor
 | Dimension | Values to cover |
 |---|---|
 | Account type | Management, Member, Standalone (not in an org) |
-| Deploy method | `deploy.sh` (CloudFormation + CodeBuild), `run.sh` (CloudShell local) |
+| Deploy method | `deploy.sh` (CloudFormation + CodeBuild), `run-local.sh` (local or CloudShell) |
 | Region | us-east-1, one other commercial region (e.g. eu-west-1), an opt-in region (e.g. ap-south-2) |
 | Partition | Commercial (`aws`); GovCloud / China if you have access |
 | Output target | Local dir, `s3://` URI |
@@ -85,31 +85,32 @@ being scoped to the deploy region. Test case D3 proves the multi-region scan wor
 Owner: ____
 
 ### A1. Fresh deploy in us-east-1 (baseline happy path)
-- **Precondition:** Management account, no existing WAFA source bucket.
+- **Precondition:** Management account, no existing assessment source bucket.
 - **Steps:** `./deploy.sh --profile <mgmt> --region us-east-1`
 - **Expected:** Stack creates; CodeBuild `SUCCEEDED`; three files land in
   `s3://<results-bucket>/<account-id>/` (wafa-report.html, wafa-checks.csv, wafa-raw.json).
 
 ### A2. Fresh deploy in a non-us-east-1 region (validates the s3 mb flag fix)
-- **Precondition:** Clean account (no prior WAFA source bucket), OR fully torn down.
+- **Precondition:** Clean account (no prior assessment source bucket), OR fully
+  torn down.
 - **Steps:** `./deploy.sh --profile <mgmt> --region eu-west-1`
 - **Expected:** Stack creates; source bucket is created **in eu-west-1**; CodeBuild
   `SUCCEEDED`; reports present.
 - **Why:** Regression guard for `fix(deploy): Fix bucket creation outside us-east-1`.
 
-### A3. Second-region deploy in an account that already deployed to us-east-1 (KNOWN RISK)
-- **Precondition:** A2/A1 already ran in this account (bucket `wafa-source-<acct>` exists).
+### A3. Second-region deploy in an account that already deployed to us-east-1
+- **Precondition:** A2/A1 already ran in this account (bucket
+  `wa-foundations-source-<acct>-<region>` exists).
 - **Steps:**
   1. `./deploy.sh --profile <mgmt> --region us-east-1` (wait for finish)
   2. `./deploy.sh --profile <mgmt> --region eu-west-1`
-- **Expected (if healthy):** Second deploy's CodeBuild `SUCCEEDED`, reports present.
-- **Watch for (suspected bug):** Second build FAILS at the DOWNLOAD_SOURCE phase with
-  `PermanentRedirect`, `AuthorizationHeaderMalformed`, or "bucket is in this region: us-east-1".
+- **Expected:** Second deploy's CodeBuild `SUCCEEDED`; its Region-specific
+  source bucket is created and reports are present.
 - **Diagnostics to capture:**
-  - `aws s3api get-bucket-location --bucket wafa-source-<acct>`
+  - `aws s3api get-bucket-location --bucket wa-foundations-source-<acct>-<region>`
   - `aws codebuild batch-get-builds --ids <build-id>` (failed phase message)
-- **Why:** The source bucket name is region-independent; S3 names are global, so a
-  second-region deploy may reuse the us-east-1 bucket and fail the cross-region source fetch.
+- **Why:** Regression guard confirming that the Region-specific source-bucket
+  name prevents a cross-Region source fetch.
 
 ### A4. Deploy with email notification
 - **Steps:** `./deploy.sh --profile <mgmt> --region us-east-1 --email <you>@example.com`
@@ -122,8 +123,10 @@ Owner: ____
   post_build SNS publish is skipped (SNS_TOPIC_ARN empty).
 
 ### A6. Custom stack name
-- **Steps:** `./deploy.sh --profile <mgmt> --region us-east-1 --stack-name wafa-test-1`
-- **Expected:** CodeBuild project named `WAFA-wafa-test-1`; IAM role `WAFAAssessmentRole-wafa-test-1`.
+- **Steps:** `./deploy.sh --profile <mgmt> --region us-east-1 --stack-name wa-foundations-test-1`
+- **Expected:** CodeBuild project named `wa-foundations-test-1`; IAM role named
+  `wa-foundations-test-1-codebuild-role`; results bucket name starts with
+  `wa-foundations-results-`.
 
 ### A7. Missing required --profile
 - **Steps:** `./deploy.sh --region us-east-1`
@@ -131,24 +134,24 @@ Owner: ____
 
 ### A8. Re-run assessment without redeploying
 - **Precondition:** Stack already deployed.
-- **Steps:** `aws codebuild start-build --project-name WAFA-<stack> --profile <p> --region <r>`
+- **Steps:** `aws codebuild start-build --project-name <stack> --profile <p> --region <r>`
 - **Expected:** New build runs; reports overwritten in `s3://<results-bucket>/<account-id>/`.
 
 ### A9. Teardown
 - **Steps:** `aws cloudformation delete-stack --stack-name <stack>` then
-  `aws s3 rb s3://wafa-source-<acct> --force`
+  `aws s3 rb s3://wa-foundations-source-<acct>-<region> --force`
 - **Expected:** Stack deletes cleanly (custom-resource Delete is a no-op); buckets removable.
 - **Watch for:** Results bucket has versioning enabled — confirm whether delete-stack
   leaves the results bucket (it's not auto-emptied) and document the manual cleanup step.
 
 ---
 
-## Group B — CloudShell / local run.sh
+## Group B — CloudShell / local run-local.sh
 
 Owner: ____
 
-### B1. run.sh from CloudShell in the management account
-- **Steps:** clone repo, `./run.sh`
+### B1. run-local.sh from CloudShell in the management account
+- **Steps:** clone repo, `./run-local.sh`
 - **Expected:** Deps install; assessment runs; three report files written to the current dir.
 
 ### B2. Local run with explicit S3 output
@@ -160,7 +163,7 @@ Owner: ____
 - **Expected:** Writes to `.` (current directory).
 
 ### B4. Run from CloudShell in a non-us-east-1 CloudShell region
-- **Steps:** Switch CloudShell region, `./run.sh`
+- **Steps:** Switch CloudShell region, `./run-local.sh`
 - **Expected:** Region discovery still enumerates all default-enabled regions; assessment
   completes (the assessment is region-agnostic; only IAM + region bootstrap are pinned).
 

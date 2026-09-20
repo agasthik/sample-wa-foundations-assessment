@@ -9,17 +9,17 @@ phases:
 
   build:
     commands:
-      - echo "Starting WAFA Assessment..."
+      - echo "Starting Well-Architected Foundations Assessment..."
       - python -m src.main --output s3://$RESULTS_BUCKET/
 
   post_build:
     commands:
-      - echo "WAFA Assessment complete."
+      - echo "Well-Architected Foundations Assessment complete."
       - |
         if [ -n "$SNS_TOPIC_ARN" ]; then
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           aws sns publish \
             --topic-arn "$SNS_TOPIC_ARN" \
-            --subject "WAFA Assessment Complete" \
+            --subject "Foundations Assessment Complete" \
             --message "Assessment complete for account $ACCOUNT_ID. Results: s3://$RESULTS_BUCKET/$ACCOUNT_ID/"
         fi

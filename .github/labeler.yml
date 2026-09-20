@@ -16,7 +16,7 @@ deployment:
       - 'deployment/**'
       - 'deploy.sh'
       - 'buildspec.yml'
-      - 'run.sh'
+      - 'run-local.sh'
 
 tests:
   - changed-files:

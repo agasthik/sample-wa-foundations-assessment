@@ -1,11 +1,11 @@
 #!/bin/bash
-# WAFA Deploy Script
+# Well-Architected Foundations Assessment Deploy Script
 # Zips source, uploads to S3, deploys CloudFormation stack.
 #
 # Usage:
 #   ./deploy.sh --profile my-profile --region us-east-1
 #   ./deploy.sh --profile my-profile --region us-east-1 --email user@example.com
-#   ./deploy.sh --profile my-profile --region us-east-1 --stack-name my-wafa
+#   ./deploy.sh --profile my-profile --region us-east-1 --stack-name wa-foundations-test
 #
 # Prerequisites:
 #   - AWS CLI v2 installed
@@ -17,7 +17,7 @@ set -euo pipefail
 # Defaults
 PROFILE=""
 REGION="us-east-1"
-STACK_NAME="wafa"
+STACK_NAME="wa-foundations-assessment"
 EMAIL=""
 
 # Parse arguments
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --profile     AWS CLI profile to use (required)"
             echo "  --region      AWS region (default: us-east-1)"
-            echo "  --stack-name  CloudFormation stack name (default: wafa)"
+            echo "  --stack-name  CloudFormation stack name (default: wa-foundations-assessment)"
             echo "  --email       Email for completion notifications (optional)"
             exit 0
             ;;
@@ -65,7 +65,7 @@ fi
 AWS_OPTS="--profile $PROFILE --region $REGION"
 
 echo "============================================"
-echo "  WAFA Deployment"
+echo "  Well-Architected Foundations Assessment"
 echo "============================================"
 echo "Profile:    $PROFILE"
 echo "Region:     $REGION"
@@ -82,7 +82,7 @@ echo "  Account: $ACCOUNT_ID"
 # 2. Zip source
 echo "[2/5] Packaging source code..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ZIP_FILE="/tmp/wafa-source-${ACCOUNT_ID}.zip"
+ZIP_FILE="/tmp/wa-foundations-source-${ACCOUNT_ID}.zip"
 rm -f "$ZIP_FILE"
 (cd "$SCRIPT_DIR" && zip -qr "$ZIP_FILE" src/ requirements.txt buildspec.yml -x "**/__pycache__/*")
 echo "  Created: $ZIP_FILE ($(du -h "$ZIP_FILE" | cut -f1))"
@@ -93,8 +93,8 @@ echo "  Created: $ZIP_FILE ($(du -h "$ZIP_FILE" | cut -f1))"
 # created in the first deploy's region and then reused by later deploys to
 # other regions — leaving CodeBuild in region B trying to fetch its source zip
 # from a bucket physically in region A, which fails at DOWNLOAD_SOURCE.
-SOURCE_BUCKET="wafa-source-${ACCOUNT_ID}-${REGION}"
-SOURCE_KEY="wafa-source.zip"
+SOURCE_BUCKET="wa-foundations-source-${ACCOUNT_ID}-${REGION}"
+SOURCE_KEY="wa-foundations-source.zip"
 echo "[3/5] Uploading source to s3://$SOURCE_BUCKET/$SOURCE_KEY..."
 
 # Create bucket if it doesn't exist
@@ -134,7 +134,7 @@ RESULTS_BUCKET=$(aws cloudformation describe-stacks \
     --output text $AWS_OPTS)
 
 # Wait for build to complete (up to 3 minutes)
-PROJECT_NAME="WAFA-${STACK_NAME}"
+PROJECT_NAME="$STACK_NAME"
 echo "  Waiting for CodeBuild to complete..."
 BUILD_SUCCEEDED="false"
 BUILD_ID=""
@@ -173,7 +173,7 @@ fi
 
 echo ""
 echo "============================================"
-echo "  WAFA Deployment Complete!"
+echo "  Assessment Deployment Complete!"
 echo "============================================"
 echo ""
 echo "Results bucket: $RESULTS_BUCKET"
@@ -189,5 +189,5 @@ echo ""
 echo "Tear down:"
 echo "  aws cloudformation delete-stack --stack-name $STACK_NAME $AWS_OPTS"
 echo "  aws s3 rb s3://$SOURCE_BUCKET --force $AWS_OPTS"
-echo "  # Note: the source bucket is region-specific (wafa-source-<acct>-<region>);"
+echo "  # Note: the source bucket is region-specific (wa-foundations-source-<acct>-<region>);"
 echo "  # tear down each region you deployed to."

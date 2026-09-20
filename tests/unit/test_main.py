@@ -6,10 +6,47 @@ Tests both management account (full) and non-management account (limited) flows.
 
 import json
 import os
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
 from src.main import run, print_summary, upload_to_s3
+
+
+def test_deployment_names_use_wa_foundations_prefix():
+    """Future deployments consistently use the WA Foundations resource prefix."""
+    repository_root = Path(__file__).resolve().parents[2]
+    template = (repository_root / "deployment" / "wafa-stack.yaml").read_text()
+    deploy_script = (repository_root / "deploy.sh").read_text()
+
+    assert "Name: !Ref 'AWS::StackName'" in template
+    assert "/aws/codebuild/WAFA-${AWS::StackName}" not in template
+    assert "'wa-foundations-results-'" in template
+    assert "Default: 'wa-foundations-source.zip'" in template
+    assert "Value: WA-Foundations-Assessment" in template
+    assert (
+        "Deploys the Well-Architected Foundations Assessment for AWS Organizations"
+        in template
+    )
+    assert "automated AWS CodeBuild execution" in template
+    assert "scoped IAM permissions" in template
+    assert "versioned Amazon S3 report storage" in template
+    assert 'STACK_NAME="wa-foundations-assessment"' in deploy_script
+    assert 'SOURCE_BUCKET="wa-foundations-source-${ACCOUNT_ID}-${REGION}"' in (
+        deploy_script
+    )
+    assert 'SOURCE_KEY="wa-foundations-source.zip"' in deploy_script
+    assert (
+        "Description: Name of the S3 bucket containing generated assessment reports"
+        in template
+    )
+    assert (
+        "Description: Name of the CodeBuild project used to run or re-run the assessment"
+        in template
+    )
+    assert 'PROJECT_NAME="$STACK_NAME"' in deploy_script
+    assert 'STACK_NAME="wafa"' not in deploy_script
+    assert 'PROJECT_NAME="WAFA-${STACK_NAME}"' not in deploy_script
 
 
 # ============================================================================
@@ -380,7 +417,8 @@ class TestRunManagementAccount:
         with open(os.path.join(output_dir, "wafa-report.html")) as f:
             html = f.read()
         assert "radarChart" in html
-        assert "Maturity Level" in html
+        assert "Assessment Overview" in html
+        assert "Maturity Progress" in html
         assert "AWS Organization exists" in html
 
         # Verify CSV content

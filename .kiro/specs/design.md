@@ -175,9 +175,11 @@ def check_scp_enabled():
 
 ## CloudFormation Template (Option B)
 
-The deployed template is `deployment/wafa-stack.yaml`. The deployment script first
-creates the source bucket `wafa-source-{account_id}` and uploads `wafa-source.zip`,
-then passes `SourceBucket` and `SourceKey` to CloudFormation.
+The deployed template is `deployment/wafa-stack.yaml`. The deployment script
+first creates the source bucket
+`wa-foundations-source-{account_id}-{region}` and uploads
+`wa-foundations-source.zip`, then passes `SourceBucket` and `SourceKey` to
+CloudFormation.
 
 The stack creates:
 
