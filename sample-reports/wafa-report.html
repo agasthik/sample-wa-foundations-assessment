@@ -3,43 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WAFA Report</title>
+<title>WA-Foundations Report</title>
 <style>
 :root {
-    --bg: #ffffff;
-    --text: #1a1a2e;
-    --card-bg: #f8f9fa;
-    --border: #e0e0e0;
-    --accent: #232f3e;
-    --complete: #1b8a4a;
-    --incomplete: #d13212;
-    --error: #8d6e00;
-    --progress-bg: #e9ecef;
+    color-scheme: light;
+    --bg: #F4F6F8;
+    --text: #17202A;
+    --card-bg: #FFFFFF;
+    --border: #D7DEE7;
+    --accent: #1F2A44;
+    --accent-soft: #EAF0FA;
+    --accent-contrast: #FFFFFF;
+    --link: #2F6FED;
+    --complete: #147D64;
+    --complete-soft: #E8F5F1;
+    --incomplete: #B42318;
+    --incomplete-soft: #FDECEA;
+    --error: #935B00;
+    --error-soft: #FFF4DE;
+    --progress-bg: #E7ECF2;
+    --shadow: 0 2px 10px rgba(31, 42, 68, 0.08);
+    --radar-grid: #68778A;
+    --radar-fill: #FF9900;
+    --radar-stroke: #B84F00;
 }
 [data-theme="dark"] {
-    --bg: #1a1a2e;
-    --text: #e0e0e0;
-    --card-bg: #16213e;
-    --border: #2a2a4a;
-    --accent: #ff9900;
-    --complete: #2ecc71;
-    --incomplete: #ff6b6b;
-    --error: #f39c12;
-    --progress-bg: #2a2a4a;
+    color-scheme: dark;
+    --bg: #0F1724;
+    --text: #E7ECF3;
+    --card-bg: #182235;
+    --border: #334155;
+    --accent: #78A9FF;
+    --accent-soft: #213654;
+    --accent-contrast: #0F1724;
+    --link: #8BB7FF;
+    --complete: #50D3AA;
+    --complete-soft: #173A35;
+    --incomplete: #FF8A80;
+    --incomplete-soft: #40252C;
+    --error: #F5B95F;
+    --error-soft: #3D321F;
+    --progress-bg: #253249;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+    --radar-grid: #C2CBD5;
+    --radar-fill: #FFAD33;
+    --radar-stroke: #FFC066;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
     padding: 2rem;
-    max-width: 1200px;
+    max-width: 1440px;
     margin: 0 auto;
-    transition: all 0.3s;
+    transition: background-color 0.2s, color 0.2s;
 }
-h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.5rem; }
 h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+.report-layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+.report-content { min-width: 0; }
+.report-section { scroll-margin-top: 1rem; }
+.section-nav {
+    position: sticky;
+    top: 1rem;
+    padding: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+}
+.section-nav-title {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+}
+.section-nav a {
+    display: block;
+    padding: 0.55rem 0.7rem;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.88rem;
+    text-decoration: none;
+}
+.section-nav a:hover { background: var(--accent-soft); }
+.section-nav a.active {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-weight: 600;
+}
+.mobile-section-nav {
+    display: none;
+    margin-bottom: 1rem;
+}
+.mobile-section-nav label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.mobile-section-nav select {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+}
 .theme-toggle {
     cursor: pointer;
     padding: 0.5rem 1rem;
@@ -49,12 +137,42 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
     color: var(--text);
     font-size: 0.9rem;
 }
+.theme-toggle:hover { background: var(--accent-soft); }
+.theme-toggle:focus-visible,
+.section-nav a:focus-visible,
+.mobile-section-nav select:focus-visible,
+.filters button:focus-visible,
+a:focus-visible {
+    outline: 3px solid var(--link);
+    outline-offset: 2px;
+}
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+}
+.card > h2:first-child { margin-top: 0; }
+.overview-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr);
+    gap: 2rem;
+    align-items: center;
+}
+.overview-grid .maturity-info { margin-bottom: 0; }
+.overview-stats {
+    grid-template-columns: repeat(5, minmax(80px, 1fr));
+    margin-bottom: 0;
+}
+.overview-stats .stat-value { font-size: 1.8rem; }
+.account-context {
+    margin-top: 1.25rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    opacity: 0.75;
 }
 .maturity-badge {
     display: inline-block;
@@ -63,10 +181,89 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
     padding: 0.5rem 1.5rem;
     border-radius: 8px;
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     margin-right: 1rem;
 }
 .maturity-info { display: flex; align-items: center; margin-bottom: 1rem; }
+.maturity-ladder {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 1rem 0 1.25rem;
+}
+.maturity-level-step {
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    opacity: 0.65;
+}
+.maturity-level-step.achieved {
+    border-color: var(--complete);
+    background: var(--complete-soft);
+    opacity: 0.85;
+}
+.maturity-level-step.current {
+    border: 2px solid var(--accent);
+    background: var(--accent-soft);
+    opacity: 1;
+}
+.maturity-level-step.next {
+    border-style: dashed;
+    border-color: var(--accent);
+    opacity: 1;
+}
+.level-step-number { display: block; font-weight: 700; }
+.level-step-name {
+    display: block;
+    margin: 0.15rem 0 0.35rem;
+    font-size: 0.85rem;
+}
+.level-step-state {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.75;
+}
+.level-step-progress { display: block; margin-top: 0.3rem; font-size: 0.8rem; }
+.maturity-methodology { margin-top: 1.25rem; }
+.methodology-intro { margin: 0.8rem 0; font-size: 0.9rem; }
+.level-criteria-section {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+}
+.level-criteria-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+}
+.level-criteria-heading h3 { font-size: 1rem; }
+.level-criteria-summary { font-size: 0.8rem; opacity: 0.75; }
+.level-description { margin: 0.35rem 0; font-size: 0.85rem; opacity: 0.8; }
+.criteria-list { list-style: none; margin-top: 0.5rem; }
+.criteria-list li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px dotted var(--border);
+    font-size: 0.85rem;
+}
+.criteria-list li:last-child { border-bottom: 0; }
+.criterion-detail {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+.criterion-status { white-space: nowrap; font-weight: 600; }
+.criterion-complete .criterion-status { color: var(--complete); }
+.criterion-incomplete .criterion-status { color: var(--incomplete); }
+.criterion-error .criterion-status { color: var(--error); }
+.criterion-not_assessed .criterion-status { opacity: 0.65; }
 .progress-bar {
     width: 100%;
     height: 12px;
@@ -93,11 +290,36 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
 .stat-complete .stat-value { color: var(--complete); }
 .stat-incomplete .stat-value { color: var(--incomplete); }
 .stat-error .stat-value { color: var(--error); }
-.chart-container { max-width: 500px; margin: 0 auto; }
+.chart-container { max-width: 760px; margin: 0 auto; }
 .chart-container svg { display: block; width: 100%; height: auto; }
-/* Radar axis labels follow the theme: near-black on light, white on dark. */
-.radar-label { fill: #1a1a2e; font-weight: 600; }
-[data-theme="dark"] .radar-label { fill: #ffffff; }
+/* Radar geometry and labels remain legible in both report themes. */
+.radar-grid,
+.radar-spoke {
+    fill: none;
+    stroke: var(--radar-grid);
+    stroke-opacity: 0.65;
+    stroke-width: 1.25;
+    vector-effect: non-scaling-stroke;
+}
+.radar-data {
+    fill: var(--radar-fill);
+    fill-opacity: 0.3;
+    stroke: var(--radar-stroke);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+.radar-label {
+    fill: var(--text);
+    stroke: var(--card-bg);
+    stroke-width: 2.5px;
+    paint-order: stroke;
+    stroke-linejoin: round;
+    font-weight: 700;
+}
+[data-theme="dark"] .radar-grid,
+[data-theme="dark"] .radar-spoke { stroke-opacity: 0.6; }
+[data-theme="dark"] .radar-data { fill-opacity: 0.28; }
 .filters { margin: 1rem 0; }
 .filters button {
     padding: 0.4rem 1rem;
@@ -108,7 +330,12 @@ h2 { font-size: 1.3rem; margin: 1.5rem 0 0.8rem; color: var(--accent); }
     color: var(--text);
     cursor: pointer;
 }
-.filters button.active { background: var(--accent); color: white; border-color: var(--accent); }
+.filters button:hover { background: var(--accent-soft); }
+.filters button.active {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-color: var(--accent);
+}
 table {
     width: 100%;
     border-collapse: collapse;
@@ -119,97 +346,297 @@ th, td {
     text-align: left;
     border-bottom: 1px solid var(--border);
 }
-th { font-weight: 600; background: var(--card-bg); position: sticky; top: 0; }
+th { font-weight: 600; background: var(--accent-soft); position: sticky; top: 0; }
 .status-complete { color: var(--complete); font-weight: 600; }
 .status-incomplete { color: var(--incomplete); font-weight: 600; }
 .status-error { color: var(--error); font-weight: 600; }
-a { color: var(--accent); }
+.status-legend {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+}
+.status-legend-item {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 5px;
+    font-size: 0.85rem;
+}
+.status-legend-item strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+.status-legend-complete {
+    border-left-color: var(--complete);
+    background: var(--complete-soft);
+}
+.status-legend-incomplete {
+    border-left-color: var(--incomplete);
+    background: var(--incomplete-soft);
+}
+.status-legend-error {
+    border-left-color: var(--error);
+    background: var(--error-soft);
+}
+.status-legend-complete strong { color: var(--complete); }
+.status-legend-incomplete strong { color: var(--incomplete); }
+.status-legend-error strong { color: var(--error); }
+.status-scoring-note {
+    margin-bottom: 1rem;
+    font-size: 0.82rem;
+    opacity: 0.75;
+}
+a { color: var(--link); }
 .next-steps li { margin: 0.3rem 0; }
 .assessment-scope-note {
     margin: 1rem 0 0;
     padding: 0.75rem 1rem;
     border-left: 4px solid var(--accent);
-    background: var(--progress-bg);
+    background: var(--accent-soft);
     font-size: 0.9rem;
 }
 .delegated-table { margin-top: 1rem; }
+@media (max-width: 1100px) {
+    .overview-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+    .report-layout { display: block; }
+    .section-nav { display: none; }
+    .mobile-section-nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+    }
+    .report-section { scroll-margin-top: 5rem; }
+}
+@media (max-width: 700px) {
+    body { padding: 1rem; }
+    .header { align-items: flex-start; gap: 1rem; }
+    .maturity-ladder { grid-template-columns: 1fr; }
+    .maturity-info { align-items: flex-start; }
+    .overview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .status-legend { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
 <div class="header">
-    <h1>WAFA Assessment Report</h1>
+    <h1>Well Architected Foundations Assessment Report</h1>
     <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
 </div>
 
-<!-- Maturity Level -->
-<div class="card">
-    <h2>Maturity Level</h2>
-    <div class="maturity-info">
-        <span class="maturity-badge">L2</span>
-        <div>
-            <strong>Established</strong>
-            <p style="opacity:0.8;font-size:0.9rem;">AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process.</p>
+<div class="mobile-section-nav">
+    <label for="sectionJump">Jump to section</label>
+    <select id="sectionJump" onchange="navigateToSection(this.value)">
+        <option value="overview">Assessment Overview</option>
+        <option value="maturity">Maturity Progress</option>
+        <option value="capabilities">Capability Coverage</option>
+        <option value="checks">Check Results</option>
+
+        <option value="delegated-admins">Delegated Administrators</option>
+
+
+        <option value="methodology">Maturity Methodology</option>
+
+    </select>
+</div>
+
+<div class="report-layout">
+<aside class="section-nav" aria-label="Report sections">
+    <span class="section-nav-title">Report sections</span>
+    <nav>
+        <a class="active" href="#overview" aria-current="location">Assessment Overview</a>
+        <a href="#maturity">Maturity Progress</a>
+        <a href="#capabilities">Capability Coverage</a>
+        <a href="#checks">Check Results</a>
+
+        <a href="#delegated-admins">Delegated Administrators</a>
+
+
+        <a href="#methodology">Maturity Methodology</a>
+
+    </nav>
+</aside>
+
+<main class="report-content">
+<!-- Assessment Overview -->
+<div class="card report-section" id="overview">
+    <h2>Assessment Overview</h2>
+    <div class="overview-grid">
+        <div class="maturity-info">
+            <span class="maturity-badge">L2</span>
+            <div>
+                <strong>Established</strong>
+                <p style="opacity:0.8;font-size:0.9rem;">AWS Organizations, the management account, a minimum account baseline, and an organizational unit structure are established.</p>
+            </div>
+        </div>
+        <div class="stats overview-stats">
+            <div class="stat-item"><div class="stat-value">35</div><div class="stat-label">Total Checks</div></div>
+            <div class="stat-item stat-complete"><div class="stat-value">30</div><div class="stat-label">Complete</div></div>
+            <div class="stat-item stat-incomplete"><div class="stat-value">4</div><div class="stat-label">Incomplete</div></div>
+            <div class="stat-item stat-error"><div class="stat-value">1</div><div class="stat-label">Errors</div></div>
+            <div class="stat-item"><div class="stat-value">86%</div><div class="stat-label">Completion</div></div>
         </div>
     </div>
-    
-    
+
+    <p class="account-context">Account: 111111111111 (management)</p>
+</div>
+
+<!-- Maturity Progress -->
+<div class="card report-section" id="maturity">
+    <h2>Maturity Progress</h2>
+
+    <div class="maturity-ladder" aria-label="Maturity level progression">
+
+        <div class="maturity-level-step achieved">
+            <span class="level-step-number">Level 1</span>
+            <span class="level-step-name">Base</span>
+            <span class="level-step-state">
+
+                Achieved
+
+            </span>
+            <span class="level-step-progress">
+
+                Baseline
+
+            </span>
+        </div>
+
+        <div class="maturity-level-step current">
+            <span class="level-step-number">Level 2</span>
+            <span class="level-step-name">Established</span>
+            <span class="level-step-state">
+
+                Current level
+
+            </span>
+            <span class="level-step-progress">
+
+                4/4 criteria
+
+            </span>
+        </div>
+
+        <div class="maturity-level-step next">
+            <span class="level-step-number">Level 3</span>
+            <span class="level-step-name">Intermediate</span>
+            <span class="level-step-state">
+
+                Next target
+
+            </span>
+            <span class="level-step-progress">
+
+                7/8 criteria
+
+            </span>
+        </div>
+
+        <div class="maturity-level-step locked">
+            <span class="level-step-number">Level 4</span>
+            <span class="level-step-name">Advanced</span>
+            <span class="level-step-state">
+
+                Later level
+
+            </span>
+            <span class="level-step-progress">
+
+                15/17 criteria
+
+            </span>
+        </div>
+
+        <div class="maturity-level-step locked">
+            <span class="level-step-number">Level 5</span>
+            <span class="level-step-name">Expert</span>
+            <span class="level-step-state">
+
+                Later level
+
+            </span>
+            <span class="level-step-progress">
+
+                30/35 criteria
+
+            </span>
+        </div>
+
+    </div>
+
+
     <p>Progress toward Level 3:</p>
     <div class="progress-bar">
         <div class="progress-fill" style="width: 87.5%"></div>
     </div>
     <p style="font-size:0.85rem;opacity:0.7;">87.5% complete</p>
-    
+
     <h3 style="margin-top:1rem;font-size:1rem;">Next Steps (highest impact first):</h3>
     <ol class="next-steps">
-        
-        <li>AWS Config recorder active</li>
-        
-    </ol>
-    
-    
-</div>
 
-<!-- Executive Summary -->
-<div class="card">
-    <h2>Executive Summary</h2>
-    <div class="stats">
-        <div class="stat-item"><div class="stat-value">35</div><div class="stat-label">Total Checks</div></div>
-        <div class="stat-item stat-complete"><div class="stat-value">30</div><div class="stat-label">Complete</div></div>
-        <div class="stat-item stat-incomplete"><div class="stat-value">4</div><div class="stat-label">Incomplete</div></div>
-        <div class="stat-item stat-error"><div class="stat-value">1</div><div class="stat-label">Errors</div></div>
-        <div class="stat-item"><div class="stat-value">86%</div><div class="stat-label">Completion</div></div>
-    </div>
-    <p style="font-size:0.85rem;opacity:0.7;">Account: 111111111111 (management)</p>
+        <li>AWS Config recorder active</li>
+
+    </ol>
+
+
 </div>
 
 <!-- Radar Chart -->
-<div class="card">
+<div class="card report-section" id="capabilities">
     <h2>Capability Coverage (WA Foundations)</h2>
     <div class="chart-container" id="radarChart">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-318.2 0 1173.4 560" role="img"
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-357.9 0 1255.2 560" role="img"
     aria-label="WA Foundations capability coverage radar chart">
     <title>WA Foundations capability coverage</title>
-    <polygon points="280.0,233.8 316.2,251.2 325.1,290.3 300.1,321.7 259.9,321.7 234.9,290.3 243.8,251.2" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<polygon points="280.0,187.5 352.3,222.3 370.2,300.6 320.1,363.3 239.9,363.3 189.8,300.6 207.7,222.3" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<polygon points="280.0,141.2 388.5,193.5 415.3,310.9 340.2,405.0 219.8,405.0 144.7,310.9 171.5,193.5" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<polygon points="280.0,95.0 424.6,164.7 460.4,321.2 360.3,446.7 199.7,446.7 99.6,321.2 135.4,164.7" fill="none" stroke="#9aa0a6" stroke-opacity="0.35"/>
-    <line x1="280" y1="280" x2="280.0" y2="95.0" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="424.6" y2="164.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="460.4" y2="321.2" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="360.3" y2="446.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="199.7" y2="446.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="99.6" y2="321.2" stroke="#9aa0a6" stroke-opacity="0.35"/>
-<line x1="280" y1="280" x2="135.4" y2="164.7" stroke="#9aa0a6" stroke-opacity="0.35"/>
-    <polygon points="280.0,126.4 400.1,184.3 460.4,321.2 360.3,446.7 219.8,405.0 159.2,307.6 280.0,280.0" fill="#ff9900" fill-opacity="0.22"
-        stroke="#ff9900" stroke-width="2"/>
-    <text x="280.0" y="45.0" text-anchor="middle" dominant-baseline="middle" class="radar-label" font-size="18">Multi-Account Environment (83%)</text><text x="463.7" y="133.5" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Identity &amp; Access Management (83%)</text><text x="509.1" y="332.3" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Central Observability (100%)</text><text x="382.0" y="491.7" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="18">Resource &amp; Inventory Management (100%)</text><text x="178.0" y="491.7" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Security &amp; Compliance (75%)</text><text x="50.9" y="332.3" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Cloud Financial Management (67%)</text><text x="96.3" y="133.5" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="18">Networking &amp; Connectivity (0%)</text>
+    <polygon points="280.0,233.8 316.2,251.2 325.1,290.3 300.1,321.7 259.9,321.7 234.9,290.3 243.8,251.2" class="radar-grid"/>
+<polygon points="280.0,187.5 352.3,222.3 370.2,300.6 320.1,363.3 239.9,363.3 189.8,300.6 207.7,222.3" class="radar-grid"/>
+<polygon points="280.0,141.2 388.5,193.5 415.3,310.9 340.2,405.0 219.8,405.0 144.7,310.9 171.5,193.5" class="radar-grid"/>
+<polygon points="280.0,95.0 424.6,164.7 460.4,321.2 360.3,446.7 199.7,446.7 99.6,321.2 135.4,164.7" class="radar-grid"/>
+    <line x1="280" y1="280" x2="280.0" y2="95.0" class="radar-spoke"/>
+<line x1="280" y1="280" x2="424.6" y2="164.7" class="radar-spoke"/>
+<line x1="280" y1="280" x2="460.4" y2="321.2" class="radar-spoke"/>
+<line x1="280" y1="280" x2="360.3" y2="446.7" class="radar-spoke"/>
+<line x1="280" y1="280" x2="199.7" y2="446.7" class="radar-spoke"/>
+<line x1="280" y1="280" x2="99.6" y2="321.2" class="radar-spoke"/>
+<line x1="280" y1="280" x2="135.4" y2="164.7" class="radar-spoke"/>
+    <polygon points="280.0,126.4 400.1,184.3 460.4,321.2 360.3,446.7 219.8,405.0 159.2,307.6 280.0,280.0" class="radar-data"/>
+    <text x="280.0" y="45.0" text-anchor="middle" dominant-baseline="middle" class="radar-label" font-size="20">Multi-Account Environment (83%)</text><text x="463.7" y="133.5" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="20">Identity &amp; Access Management (83%)</text><text x="509.1" y="332.3" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="20">Central Observability (100%)</text><text x="382.0" y="491.7" text-anchor="start" dominant-baseline="middle" class="radar-label" font-size="20">Resource &amp; Inventory Management (100%)</text><text x="178.0" y="491.7" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="20">Security &amp; Compliance (75%)</text><text x="50.9" y="332.3" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="20">Cloud Financial Management (67%)</text><text x="96.3" y="133.5" text-anchor="end" dominant-baseline="middle" class="radar-label" font-size="20">Networking &amp; Connectivity (0%)</text>
 </svg>
     </div>
 </div>
 
 <!-- Check Results Table -->
-<div class="card">
+<div class="card report-section" id="checks">
     <h2>Check Results</h2>
+    <div class="status-legend" aria-label="Check result status definitions">
+        <div class="status-legend-item status-legend-complete">
+            <strong>Complete</strong>
+            Verified and meets the criterion.
+        </div>
+        <div class="status-legend-item status-legend-incomplete">
+            <strong>Incomplete</strong>
+            Verified but does not meet the criterion.
+        </div>
+        <div class="status-legend-item status-legend-error">
+            <strong>Error</strong>
+            Could not be reliably assessed, usually because of permissions or an AWS API failure.
+        </div>
+    </div>
+    <p class="status-scoring-note">
+        Only Complete results contribute to completion and capability scores.
+        Incomplete and Error results do not satisfy maturity criteria.
+        An Error does not necessarily mean the configuration is incorrect.
+    </p>
     <div class="filters">
         <button class="active" onclick="filterChecks('all', this)">All (35)</button>
         <button onclick="filterChecks('complete', this)">Complete (30)</button>
@@ -227,7 +654,7 @@ a { color: var(--accent); }
             </tr>
         </thead>
         <tbody>
-            
+
             <tr data-status="complete">
                 <td title="An AWS Organization should be established for multi-account management.">AWS Organization exists</td>
                 <td class="status-complete">complete</td>
@@ -235,7 +662,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_create.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Assessment should be run from the organization management account.">Management account identified</td>
                 <td class="status-complete">complete</td>
@@ -243,7 +670,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Organization should have at least 4 accounts (Management, Log Archive, Audit, Workload).">Minimum 4 accounts</td>
                 <td class="status-complete">complete</td>
@@ -251,7 +678,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="A dedicated Log Archive account should exist for centralized logging.">Log Archive account exists</td>
                 <td class="status-complete">complete</td>
@@ -259,7 +686,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/log-archive.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="A dedicated Audit or Security Tooling account should exist.">Audit account exists</td>
                 <td class="status-complete">complete</td>
@@ -267,7 +694,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="SCPs should be enabled to enforce guardrails across the organization.">Service Control Policies enabled</td>
                 <td class="status-complete">complete</td>
@@ -275,7 +702,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Tag Policies should be enabled for consistent resource tagging and cost allocation.">Tag Policies enabled</td>
                 <td class="status-complete">complete</td>
@@ -283,7 +710,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Backup Policies should be enabled for centralized backup governance.">Backup Policies enabled</td>
                 <td class="status-complete">complete</td>
@@ -291,7 +718,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_backup.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="incomplete">
                 <td title="RCPs should be enabled for data perimeter controls.">Resource Control Policies enabled</td>
                 <td class="status-incomplete">incomplete</td>
@@ -299,7 +726,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="A Security OU should exist at the root level for security accounts.">Security OU exists</td>
                 <td class="status-complete">complete</td>
@@ -307,7 +734,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="A Workloads OU should exist for business application accounts.">Workloads OU exists</td>
                 <td class="status-complete">complete</td>
@@ -315,7 +742,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="incomplete">
                 <td title="An Infrastructure OU should exist for shared infrastructure services.">Infrastructure OU exists</td>
                 <td class="status-incomplete">incomplete</td>
@@ -323,7 +750,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="CloudTrail should be enabled as an organization service for centralized audit logging.">CloudTrail organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -331,7 +758,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="AWS Config should be enabled as an organization service for resource tracking.">AWS Config organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -339,7 +766,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/config-rule-multi-account-deployment.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="GuardDuty should be enabled as an organization service for threat detection.">GuardDuty organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -347,7 +774,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_organizations.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="incomplete">
                 <td title="Security Hub should be enabled as an organization service for centralized security findings.">Security Hub organization service enabled</td>
                 <td class="status-incomplete">incomplete</td>
@@ -355,7 +782,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/securityhub/latest/userguide/designate-orgs-admin-account.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="IAM Access Analyzer should be enabled for cross-account access analysis.">IAM Access Analyzer organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -363,7 +790,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-getting-started.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Resource Access Manager should be enabled for cross-account resource sharing.">RAM organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -371,7 +798,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/ram/latest/userguide/getting-started-sharing.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="IAM Identity Center (SSO) should be enabled for centralized identity management.">IAM Identity Center organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -379,7 +806,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="CloudFormation StackSets should be enabled for organization-wide deployments.">CloudFormation StackSets organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -387,7 +814,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-enable-trusted-access.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="AWS Backup should be enabled as an organization service for centralized backup management.">AWS Backup organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -395,7 +822,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/manage-cross-account.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Cost Optimization Hub should be enabled for organization-wide cost visibility.">Cost Optimization Hub organization service enabled</td>
                 <td class="status-complete">complete</td>
@@ -403,7 +830,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/cost-management/latest/userguide/coh-getting-started.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="AWS Control Tower should be deployed for automated multi-account governance.">Control Tower deployed</td>
                 <td class="status-complete">complete</td>
@@ -411,7 +838,7 @@ a { color: var(--accent); }
                 <td>6</td>
                 <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Control Tower landing zone should not be in a drifted state.">Control Tower not drifted</td>
                 <td class="status-complete">complete</td>
@@ -419,7 +846,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/drift.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Control Tower landing zone should be on the latest available version.">Control Tower latest version</td>
                 <td class="status-complete">complete</td>
@@ -427,7 +854,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/controltower/latest/userguide/configuration-updates.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="IAM Identity Center (SSO) should be configured for centralized identity management.">IAM Identity Center configured</td>
                 <td class="status-complete">complete</td>
@@ -435,7 +862,7 @@ a { color: var(--accent); }
                 <td>3</td>
                 <td><a href="https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="The assessed account should avoid IAM users; use IAM Identity Center or federation instead.">No IAM users in account</td>
                 <td class="status-complete">complete</td>
@@ -443,7 +870,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#bp-users-federation-idp" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="At least one CloudTrail trail should be configured for audit logging.">CloudTrail trail exists</td>
                 <td class="status-complete">complete</td>
@@ -451,7 +878,7 @@ a { color: var(--accent); }
                 <td>3</td>
                 <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="An organization trail should be configured for centralized audit logging across all accounts.">CloudTrail organization trail</td>
                 <td class="status-complete">complete</td>
@@ -459,7 +886,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-trail-organization.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="error">
                 <td title="AWS Config recorder should be active for resource configuration tracking.">AWS Config recorder active</td>
                 <td class="status-error">error</td>
@@ -467,7 +894,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="AWS Config delivery channel should be configured for configuration change delivery.">AWS Config delivery channel active</td>
                 <td class="status-complete">complete</td>
@@ -475,7 +902,7 @@ a { color: var(--accent); }
                 <td>2</td>
                 <td><a href="https://docs.aws.amazon.com/config/latest/developerguide/manage-delivery-channel.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Reports whether the assessed account contains EC2 instances; centralized management accounts should keep workloads elsewhere.">No EC2 instances in account</td>
                 <td class="status-complete">complete</td>
@@ -483,7 +910,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="Reports whether the assessed account contains VPCs; centralized management accounts should keep workloads elsewhere.">No VPCs in account</td>
                 <td class="status-complete">complete</td>
@@ -491,7 +918,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/aws-organizations.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="incomplete">
                 <td title="A Cost and Usage Report should be configured for cost visibility.">Cost and Usage Report configured</td>
                 <td class="status-incomplete">incomplete</td>
@@ -499,7 +926,7 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/cur/latest/userguide/cur-create.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
             <tr data-status="complete">
                 <td title="CloudFormation StackSets should have organization access enabled for cross-account deployments.">StackSets organization access enabled</td>
                 <td class="status-complete">complete</td>
@@ -507,14 +934,14 @@ a { color: var(--accent); }
                 <td>1</td>
                 <td><a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html" target="_blank" rel="noopener">Fix →</a></td>
             </tr>
-            
+
         </tbody>
     </table>
 </div>
 
 
 <!-- Delegated Administrators -->
-<div class="card">
+<div class="card report-section" id="delegated-admins">
     <h2>Delegated Administrators</h2>
     <table class="delegated-table">
         <thead>
@@ -525,19 +952,518 @@ a { color: var(--accent); }
             </tr>
         </thead>
         <tbody>
-            
+
             <tr>
                 <td>333333333333</td>
                 <td>Audit</td>
                 <td>guardduty.amazonaws.com</td>
             </tr>
-            
+
         </tbody>
     </table>
 </div>
 
 
+
+<!-- Maturity Methodology -->
+<div class="card report-section" id="methodology">
+    <h2>Maturity Methodology</h2>
+    <p class="methodology-intro">
+        The Well Architected Foundations Assessments model assigns the highest maturity level whose required criteria are all complete.
+        Check weights prioritize recommended next steps; they do not change the maturity level.
+    </p>
+    <div class="maturity-methodology">
+
+        <section class="level-criteria-section">
+            <div class="level-criteria-heading">
+                <h3>Level 1 — Base</h3>
+                <span class="level-criteria-summary">
+
+                    Baseline level
+
+                </span>
+            </div>
+            <p class="level-description">One or more prerequisites for an established multi-account foundation are not yet complete.</p>
+
+        </section>
+
+        <section class="level-criteria-section">
+            <div class="level-criteria-heading">
+                <h3>Level 2 — Established</h3>
+                <span class="level-criteria-summary">
+
+                    4/4 complete
+
+                </span>
+            </div>
+            <p class="level-description">AWS Organizations, the management account, a minimum account baseline, and an organizational unit structure are established.</p>
+
+            <ul class="criteria-list">
+
+                <li class="criterion-complete">
+                    <span>
+                        AWS Organization exists
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Management account identified
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Minimum 4 accounts
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        At least one recognized organizational unit exists
+
+                        <small class="criterion-detail">Security OU, Workloads OU, or Infrastructure OU</small>
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+            </ul>
+
+        </section>
+
+        <section class="level-criteria-section">
+            <div class="level-criteria-heading">
+                <h3>Level 3 — Intermediate</h3>
+                <span class="level-criteria-summary">
+
+                    7/8 complete
+
+                </span>
+            </div>
+            <p class="level-description">Core governance, account provisioning, identity, audit logging, and resource recording foundations are in place.</p>
+
+            <ul class="criteria-list">
+
+                <li class="criterion-complete">
+                    <span>
+                        Service Control Policies enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Security OU exists
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Control Tower deployed
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Tag Policies enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        CloudTrail organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        IAM Identity Center configured
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        CloudTrail trail exists
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-error">
+                    <span>
+                        AWS Config recorder active
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ! Error
+
+                    </span>
+                </li>
+
+            </ul>
+
+        </section>
+
+        <section class="level-criteria-section">
+            <div class="level-criteria-heading">
+                <h3>Level 4 — Advanced</h3>
+                <span class="level-criteria-summary">
+
+                    15/17 complete
+
+                </span>
+            </div>
+            <p class="level-description">Organization service integrations, preventive and detective controls, and management-account hygiene checks are complete.</p>
+
+            <ul class="criteria-list">
+
+                <li class="criterion-complete">
+                    <span>
+                        Backup Policies enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-incomplete">
+                    <span>
+                        Resource Control Policies enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ○ Not complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        No IAM users in account
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        No EC2 instances in account
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        No VPCs in account
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Control Tower not drifted
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Control Tower latest version
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        CloudTrail organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        AWS Config organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        GuardDuty organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-incomplete">
+                    <span>
+                        Security Hub organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ○ Not complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        IAM Access Analyzer organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        RAM organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        IAM Identity Center organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        CloudFormation StackSets organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        AWS Backup organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+                <li class="criterion-complete">
+                    <span>
+                        Cost Optimization Hub organization service enabled
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ✓ Complete
+
+                    </span>
+                </li>
+
+            </ul>
+
+        </section>
+
+        <section class="level-criteria-section">
+            <div class="level-criteria-heading">
+                <h3>Level 5 — Expert</h3>
+                <span class="level-criteria-summary">
+
+                    30/35 complete
+
+                </span>
+            </div>
+            <p class="level-description">Every check returned by the current Well Architected Foundations Assessments report is complete.</p>
+
+            <ul class="criteria-list">
+
+                <li class="criterion-error">
+                    <span>
+                        All checks returned by this assessment are complete
+
+                        <small class="criterion-detail">30 of 35 checks complete</small>
+
+                    </span>
+                    <span class="criterion-status">
+
+                        ! Error
+
+                    </span>
+                </li>
+
+            </ul>
+
+        </section>
+
+    </div>
+</div>
+
+</main>
+</div>
+
 <script>
+// Section navigation
+function navigateToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+function setActiveSection(sectionId) {
+    document.querySelectorAll('.section-nav a').forEach(link => {
+        const isActive = link.getAttribute('href') === `#${sectionId}`;
+        link.classList.toggle('active', isActive);
+        if (isActive) {
+            link.setAttribute('aria-current', 'location');
+        } else {
+            link.removeAttribute('aria-current');
+        }
+    });
+
+    const sectionJump = document.getElementById('sectionJump');
+    if (sectionJump && sectionJump.querySelector(`option[value="${sectionId}"]`)) {
+        sectionJump.value = sectionId;
+    }
+}
+
+const sectionObserver = new IntersectionObserver(entries => {
+    const visibleSections = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    if (visibleSections.length) {
+        setActiveSection(visibleSections[0].target.id);
+    }
+}, { rootMargin: '-10% 0px -75% 0px' });
+
+document.querySelectorAll('.report-section').forEach(section => {
+    sectionObserver.observe(section);
+});
+
 // Filter
 function filterChecks(status, btn) {
     document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));

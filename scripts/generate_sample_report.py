@@ -12,8 +12,9 @@ How it stays faithful (no hand-written report content):
   the ``boto3.client`` seam, exactly like the unit tests do). The mock models a
   *management* account with a realistic, mixed posture — most foundations in
   place, a few gaps, and one permission error — so the sample exercises the full
-  report: complete/incomplete/error states, the "next steps" list, and a partial
-  capability radar (rather than an unrealistic all-green Level 5).
+  report: complete/incomplete/error states, the "next steps" list, the five-level
+  maturity ladder and generated scoring criteria, and a partial capability radar
+  (rather than an unrealistic all-green Level 5).
 - All identifiers are obvious, non-real placeholders (AWS documentation-style
   account IDs and example names), so the committed sample contains no real data.
 
@@ -128,7 +129,9 @@ def _sample_management_account_client_factory():
         elif service == "controltower":
             mock.list_landing_zones.return_value = {
                 "landingZones": [
-                    {"arn": "arn:aws:controltower:us-east-1:111111111111:landingzone/lz1"}
+                    {
+                        "arn": "arn:aws:controltower:us-east-1:111111111111:landingzone/lz1"
+                    }
                 ]
             }
             mock.get_landing_zone.return_value = {
