@@ -96,29 +96,41 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
+python -m pip install uv pip-audit==2.10.1 cfn-lint
 python -m pip check
 ```
 
-Run the complete local validation set:
+Before every push, run the complete local validation set below. Do not push
+when any applicable check fails.
 
 ```bash
-ruff check src tests scripts
-ruff format --check src tests scripts
+# Match CI's current, unpinned Ruff tool rather than relying only on the
+# version pinned in requirements-dev.txt.
+uv tool run ruff check --output-format=github src tests scripts
+uv tool run ruff format --check src tests scripts
+
 python -m compileall -q src tests scripts
 bash -n deploy.sh run-local.sh
-python -m pytest tests/unit/ -v
-python -m pytest tests/unit/ --cov=src --cov-report=term-missing
+
+python -m pytest tests/unit/ \
+  -v \
+  --tb=short \
+  --cov=src \
+  --cov-report=term-missing \
+  --cov-report=xml:coverage.xml
+
+python -m pip_audit -r requirements-dev.txt
+cfn-lint deployment/*.yaml
+
 npx --yes markdownlint-cli2 README.md AGENTS.md
-```
-
-When changing the CloudFormation template, also run:
-
-```bash
-cfn-lint deployment/wafa-stack.yaml
+git diff --check
 ```
 
 Run focused tests while iterating, but run the complete unit suite before
-finishing a code change.
+finishing a code change. The GitHub lint workflow runs the latest Ruff release,
+which may enforce rules that are not present in the version pinned for local
+development; the `uv tool run` commands above intentionally reproduce that
+behavior.
 
 ## AWS Safety and Scope
 

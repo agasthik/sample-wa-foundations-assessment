@@ -7,10 +7,9 @@ Tests both management account (full) and non-management account (limited) flows.
 import json
 import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-
-from src.main import run, print_summary, upload_to_s3
+from src.main import print_summary, run, upload_to_s3
 
 
 def test_deployment_names_use_wa_foundations_prefix():
@@ -565,7 +564,7 @@ class TestRunMemberAccount:
         mock_id_client.side_effect = factory
         mock_res_client.side_effect = factory
 
-        checks, maturity = run()
+        checks, _maturity = run()
 
         # Limited: FR-3.1, FR-3.2, FR-6.2, FR-7.1-7.6 = 9 checks
         assert len(checks) == 9

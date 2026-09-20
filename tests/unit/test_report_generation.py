@@ -2,7 +2,7 @@
 
 from src.checks.maturity import calculate_maturity_level
 from src.report.csv_export import generate_csv
-from src.report.html_report import generate_html, _calculate_axis_scores
+from src.report.html_report import _calculate_axis_scores, generate_html
 
 
 def _make_checks():

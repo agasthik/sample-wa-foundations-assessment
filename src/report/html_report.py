@@ -15,7 +15,6 @@ from html import escape as html_escape
 from jinja2 import BaseLoader, select_autoescape
 from jinja2.sandbox import SandboxedEnvironment
 
-
 # FR-10.1: Radar chart axis mapping — check names to capability axes
 CAPABILITY_AXES = {
     "Multi-Account Environment": [
@@ -218,7 +217,7 @@ def generate_html(checks, maturity, delegated_admins=None, account_info=None):
     complete = sum(1 for c in checks if c["status"] == "complete")
     incomplete = sum(1 for c in checks if c["status"] == "incomplete")
     errors = sum(1 for c in checks if c["status"] == "error")
-    pct = round((complete / total * 100)) if total > 0 else 0
+    pct = round(complete / total * 100) if total > 0 else 0
 
     # The report is a standalone HTML document, so use a sandboxed environment
     # with autoescaping instead of relying on a web framework's renderer.
