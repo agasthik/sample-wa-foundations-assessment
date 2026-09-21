@@ -97,16 +97,7 @@ placeholder account data lives in [`sample-reports/`](sample-reports/):
 > **View a sample report** to see the report as an interactive page.
 
 The sample models a management account with a realistic mixed posture: most
-foundations are in place, with a few gaps and one permission error. The real
-report code generates it through
-[`scripts/generate_sample_report.py`](scripts/generate_sample_report.py), so it
-stays synchronized with the report implementation.
-
-Regenerate it with:
-
-```bash
-python -m scripts.generate_sample_report
-```
+foundations are in place, with a few gaps and one permission error.
 
 ## Maturity Levels
 
