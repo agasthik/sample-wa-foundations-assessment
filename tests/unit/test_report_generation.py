@@ -1,7 +1,8 @@
 """Unit tests for src/report/ — FR-10: Report Generation."""
 
-from src.report.html_report import generate_html, _calculate_axis_scores
+from src.checks.maturity import calculate_maturity_level
 from src.report.csv_export import generate_csv
+from src.report.html_report import _calculate_axis_scores, generate_html
 
 
 def _make_checks():
@@ -61,8 +62,39 @@ class TestGenerateHtml:
         maturity = _make_maturity()
         html = generate_html(checks, maturity)
 
+        assert "<title>WA-Foundations Report</title>" in html
+        assert "<h1>Well Architected Foundations Assessment Report</h1>" in html
+        assert "<h2>Assessment Overview</h2>" in html
+        assert "<h2>Maturity Progress</h2>" in html
         assert "L2" in html
         assert "Established" in html
+
+    def test_html_explains_maturity_levels_from_scoring_result(self):
+        """HTML shows the scoring rule, ladder, and detailed criteria."""
+        checks = _make_checks()
+        maturity = calculate_maturity_level(checks)
+        html = generate_html(checks, maturity)
+
+        assert "How this level is determined" not in html
+        assert "Maturity Methodology" in html
+        assert '<div class="maturity-methodology">' in html
+        assert '<details class="maturity-methodology">' not in html
+        assert "highest maturity level whose required criteria are all complete" in html
+        assert "Well Architected Foundations Assessments model" in html
+        assert "WAFA" not in html
+        assert "Check weights prioritize recommended next steps" in html
+        assert "Level 1 — Base" in html
+        assert "Level 5 — Expert" in html
+        assert "1/4 criteria" in html
+        assert "— Not assessed" in html
+        assert 'class="maturity-level-step current"' in html
+        assert html.index("Check Results") < html.index("Maturity Methodology")
+        assert 'aria-label="Report sections"' in html
+        assert 'href="#overview"' in html
+        assert 'href="#maturity"' in html
+        assert 'href="#methodology"' in html
+        assert 'id="sectionJump"' in html
+        assert "IntersectionObserver" in html
 
     def test_html_caveats_limited_account_maturity(self):
         """Limited-account reports explain that maturity is provisional."""
@@ -91,6 +123,13 @@ class TestGenerateHtml:
         assert "AWS Organization exists" in html
         assert "Service Control Policies enabled" in html
         assert "Control Tower deployed" in html
+        assert 'aria-label="Check result status definitions"' in html
+        assert "Verified and meets the criterion." in html
+        assert "Verified but does not meet the criterion." in html
+        assert "Could not be reliably assessed" in html
+        assert (
+            "An Error does not necessarily mean the configuration is incorrect." in html
+        )
 
     def test_html_escapes_untrusted_check_content(self):
         """Dynamic check content cannot inject HTML or script tags."""
@@ -115,28 +154,37 @@ class TestGenerateHtml:
         svg = html.split("<svg ", 1)[1].split("</svg>", 1)[0]
         # Namespace still declared (harmless when inline, required if extracted).
         assert 'xmlns="http://www.w3.org/2000/svg"' in svg
-        # Labels are theme-aware via the .radar-label class (near-black on light,
-        # white on dark) — no hardcoded per-label fill in the SVG.
+        # Labels are theme-aware via the .radar-label class and shared text
+        # variable — no hardcoded per-label fill in the SVG.
         assert 'class="radar-label"' in svg
+        assert 'font-size="20"' in svg
         assert 'fill="#1a1a2e"' not in svg
         assert 'fill="#8a8f98"' not in svg
-        # The theme CSS rules drive the label color.
+        # Theme-aware CSS drives high-contrast geometry, data, and label colors.
+        assert 'class="radar-grid"' in svg
+        assert 'class="radar-spoke"' in svg
+        assert 'class="radar-data"' in svg
         assert ".radar-label" in html
-        assert '[data-theme="dark"] .radar-label' in html
+        assert ".radar-grid" in html
+        assert ".radar-data" in html
+        assert "fill: var(--text);" in html
         # The viewBox is padded horizontally so long axis labels are not clipped.
         view_box = svg.split('viewBox="', 1)[1].split('"', 1)[0]
         min_x, _, view_w, _ = (float(v) for v in view_box.split())
         assert min_x < 0 and view_w > 560
 
-    def test_html_contains_executive_summary(self):
-        """HTML has total, complete, incomplete, error counts."""
+    def test_html_contains_assessment_overview(self):
+        """HTML overview combines maturity and check-result totals."""
         checks = _make_checks()
         maturity = _make_maturity()
         html = generate_html(checks, maturity)
 
+        assert "Assessment Overview" in html
+        assert "Executive Summary" not in html
         assert "Total Checks" in html
         assert "Complete" in html
         assert "Incomplete" in html
+        assert html.index("Assessment Overview") < html.index("Maturity Progress")
 
     def test_html_contains_theme_toggle(self):
         """HTML has light/dark mode toggle."""
@@ -146,6 +194,10 @@ class TestGenerateHtml:
 
         assert "toggleTheme" in html
         assert "data-theme" in html
+        assert "--accent: #1F2A44;" in html
+        assert "--accent: #78A9FF;" in html
+        assert "--link: #2F6FED;" in html
+        assert "--radar-fill: #FF9900;" in html
 
     def test_html_contains_delegated_admins(self):
         """HTML shows delegated administrators when provided."""
@@ -163,6 +215,8 @@ class TestGenerateHtml:
         assert "222222222222" in html
         assert "Security" in html
         assert "guardduty.amazonaws.com" in html
+        assert 'href="#delegated-admins"' in html
+        assert 'id="delegated-admins"' in html
 
     def test_html_no_delegated_admins_section_when_empty(self):
         """HTML omits delegated admins section when list is empty."""
@@ -171,6 +225,7 @@ class TestGenerateHtml:
         html = generate_html(checks, maturity, delegated_admins=[])
 
         assert "Delegated Administrators" not in html
+        assert 'href="#delegated-admins"' not in html
 
     def test_html_contains_remediation_links(self):
         """HTML has remediation links for each check."""
@@ -214,6 +269,7 @@ class TestCalculateAxisScores:
         html = generate_html(_make_checks(), _make_maturity())
         assert 'id="radarChart"' in html
         assert "cdn.jsdelivr.net" not in html
+        assert all(line == line.rstrip() for line in html.splitlines())
 
     def test_partial_scores(self):
         """Partial completion shows proportional score."""

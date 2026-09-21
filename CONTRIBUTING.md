@@ -50,7 +50,7 @@ To send us a pull request, please:
 
    # Static syntax checks.
    $PYTHON -m compileall -q src tests
-   bash -n deploy.sh run.sh
+   bash -n deploy.sh run-local.sh
 
    # Run the unit test suite (fast, mocked with moto — no real AWS calls).
    $PYTHON -m pytest tests/unit/ -v

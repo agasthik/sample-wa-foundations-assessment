@@ -180,6 +180,49 @@ class TestLevel3:
         assert result["name"] == "Intermediate"
         assert result["next_level"] == 4
 
+    def test_level_4_progress_counts_each_org_service_once(self):
+        """Overlapping Level 4 criteria must not skew progress or next steps."""
+        checks = [_make_check(name, "complete") for name in _ALL_CHECK_NAMES]
+        guardduty = next(
+            c for c in checks if c["check"] == "GuardDuty organization service enabled"
+        )
+        guardduty["status"] = "incomplete"
+
+        result = calculate_maturity_level(checks)
+
+        assert result["level"] == 3
+        assert result["next_level"] == 4
+        assert result["next_level_progress"] == 94.1  # 16 of 17 unique checks
+        assert result["next_level_checks_needed"] == [
+            "GuardDuty organization service enabled"
+        ]
+
+    def test_scoring_model_describes_all_levels_from_the_same_criteria(self):
+        """Report explanation uses the criteria that determine the score."""
+        checks = [_make_check(name, "complete") for name in _ALL_CHECK_NAMES]
+        guardduty = next(
+            c for c in checks if c["check"] == "GuardDuty organization service enabled"
+        )
+        guardduty["status"] = "incomplete"
+
+        result = calculate_maturity_level(checks)
+        model = result["scoring_model"]
+
+        assert [level["level"] for level in model["levels"]] == [1, 2, 3, 4, 5]
+        assert [level["state"] for level in model["levels"]] == [
+            "achieved",
+            "achieved",
+            "current",
+            "next",
+            "locked",
+        ]
+        level_4 = model["levels"][3]
+        level_4_names = [criterion["name"] for criterion in level_4["criteria"]]
+        assert level_4["criteria_count"] == 17
+        assert len(level_4_names) == len(set(level_4_names))
+        assert level_4["complete_count"] == 16
+        assert level_4["progress"] == 94.1
+
 
 class TestLevel4:
     """Level 4 — Advanced: detective controls + all org services."""

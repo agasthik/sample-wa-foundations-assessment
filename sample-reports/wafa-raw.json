@@ -10,12 +10,194 @@
   "maturity": {
     "level": 2,
     "name": "Established",
-    "description": "AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process.",
+    "description": "AWS Organizations, the management account, a minimum account baseline, and an organizational unit structure are established.",
     "next_level": 3,
     "next_level_progress": 87.5,
     "next_level_checks_needed": [
       "AWS Config recorder active"
-    ]
+    ],
+    "scoring_model": {
+      "rule": "The Well Architected Foundations Assessments model assigns the highest maturity level whose required criteria are all complete.",
+      "weight_note": "Check weights prioritize recommended next steps; they do not change the maturity level.",
+      "levels": [
+        {
+          "level": 1,
+          "name": "Base",
+          "description": "One or more prerequisites for an established multi-account foundation are not yet complete.",
+          "state": "achieved",
+          "criteria": [],
+          "complete_count": 0,
+          "criteria_count": 0,
+          "progress": null
+        },
+        {
+          "level": 2,
+          "name": "Established",
+          "description": "AWS Organizations, the management account, a minimum account baseline, and an organizational unit structure are established.",
+          "state": "current",
+          "criteria": [
+            {
+              "name": "AWS Organization exists",
+              "status": "complete"
+            },
+            {
+              "name": "Management account identified",
+              "status": "complete"
+            },
+            {
+              "name": "Minimum 4 accounts",
+              "status": "complete"
+            },
+            {
+              "name": "At least one recognized organizational unit exists",
+              "status": "complete",
+              "detail": "Security OU, Workloads OU, or Infrastructure OU"
+            }
+          ],
+          "complete_count": 4,
+          "criteria_count": 4,
+          "progress": 100.0
+        },
+        {
+          "level": 3,
+          "name": "Intermediate",
+          "description": "Core governance, account provisioning, identity, audit logging, and resource recording foundations are in place.",
+          "state": "next",
+          "criteria": [
+            {
+              "name": "Service Control Policies enabled",
+              "status": "complete"
+            },
+            {
+              "name": "Security OU exists",
+              "status": "complete"
+            },
+            {
+              "name": "Control Tower deployed",
+              "status": "complete"
+            },
+            {
+              "name": "Tag Policies enabled",
+              "status": "complete"
+            },
+            {
+              "name": "CloudTrail organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "IAM Identity Center configured",
+              "status": "complete"
+            },
+            {
+              "name": "CloudTrail trail exists",
+              "status": "complete"
+            },
+            {
+              "name": "AWS Config recorder active",
+              "status": "error"
+            }
+          ],
+          "complete_count": 7,
+          "criteria_count": 8,
+          "progress": 87.5
+        },
+        {
+          "level": 4,
+          "name": "Advanced",
+          "description": "Organization service integrations, preventive and detective controls, and management-account hygiene checks are complete.",
+          "state": "locked",
+          "criteria": [
+            {
+              "name": "Backup Policies enabled",
+              "status": "complete"
+            },
+            {
+              "name": "Resource Control Policies enabled",
+              "status": "incomplete"
+            },
+            {
+              "name": "No IAM users in account",
+              "status": "complete"
+            },
+            {
+              "name": "No EC2 instances in account",
+              "status": "complete"
+            },
+            {
+              "name": "No VPCs in account",
+              "status": "complete"
+            },
+            {
+              "name": "Control Tower not drifted",
+              "status": "complete"
+            },
+            {
+              "name": "Control Tower latest version",
+              "status": "complete"
+            },
+            {
+              "name": "CloudTrail organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "AWS Config organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "GuardDuty organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "Security Hub organization service enabled",
+              "status": "incomplete"
+            },
+            {
+              "name": "IAM Access Analyzer organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "RAM organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "IAM Identity Center organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "CloudFormation StackSets organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "AWS Backup organization service enabled",
+              "status": "complete"
+            },
+            {
+              "name": "Cost Optimization Hub organization service enabled",
+              "status": "complete"
+            }
+          ],
+          "complete_count": 15,
+          "criteria_count": 17,
+          "progress": 88.2
+        },
+        {
+          "level": 5,
+          "name": "Expert",
+          "description": "Every check returned by the current Well Architected Foundations Assessments report is complete.",
+          "state": "locked",
+          "criteria": [
+            {
+              "name": "All checks returned by this assessment are complete",
+              "status": "error",
+              "detail": "30 of 35 checks complete"
+            }
+          ],
+          "complete_count": 30,
+          "criteria_count": 35,
+          "progress": 85.7
+        }
+      ]
+    }
   },
   "checks": [
     {
