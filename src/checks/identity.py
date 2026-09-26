@@ -29,7 +29,7 @@ def check_iam_identity_center(regions):
                         "required": True,
                         "weight": 6,
                         "loe": 3,
-                        "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html",
+                        "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
                     }
             except ClientError as e:
                 # Distinguish permission failures from regions that don't support SSO
@@ -52,7 +52,7 @@ def check_iam_identity_center(regions):
                 "required": True,
                 "weight": 6,
                 "loe": 3,
-                "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html",
+                "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
                 "error": f"Access denied calling sso-admin:ListInstances (IAM action sso:ListInstances) in: {', '.join(access_denied_errors)}",
             }
 
@@ -64,7 +64,7 @@ def check_iam_identity_center(regions):
             "required": True,
             "weight": 6,
             "loe": 3,
-            "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html",
+            "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
         }
     except Exception as e:
         return {
@@ -74,7 +74,7 @@ def check_iam_identity_center(regions):
             "required": True,
             "weight": 6,
             "loe": 3,
-            "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html",
+            "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
             "error": str(e),
         }
 

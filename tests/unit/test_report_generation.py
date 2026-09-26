@@ -1,8 +1,21 @@
 """Unit tests for src/report/ — FR-10: Report Generation."""
 
+import csv
+import io
+import json
+from datetime import datetime, timezone
+
+import pytest
+
+from scripts.generate_sample_report import _verify_outputs
 from src.checks.maturity import calculate_maturity_level
 from src.report.csv_export import generate_csv
-from src.report.html_report import _calculate_axis_scores, generate_html
+from src.report.html_report import (
+    ASSETS_DIR,
+    CAPABILITY_AXES,
+    _calculate_axis_scores,
+    generate_html,
+)
 
 
 def _make_checks():
@@ -55,154 +68,100 @@ def _make_maturity():
 # ============================================================================
 
 
+def _report_data(html):
+    """Extract the JSON payload the Cloudscape report UI renders."""
+    marker = '<script type="application/json" id="wafa-report-data">'
+    payload = html.split(marker, 1)[1].split("</script>", 1)[0]
+    return json.loads(payload)
+
+
 class TestGenerateHtml:
-    def test_html_contains_maturity_level(self):
-        """HTML report shows maturity level badge."""
+    def test_html_is_cloudscape_shell(self):
+        """HTML report inlines the Cloudscape bundle and mounts the UI."""
+        html = generate_html(_make_checks(), _make_maturity())
+
+        assert html.startswith("<!DOCTYPE html>")
+        assert "<title>WA-Foundations Report</title>" in html
+        assert '<div id="wafa-report-root"></div>' in html
+        assert html.index('id="wafa-report-data"') < html.index("<script>\n")
+        # The prebuilt bundle contains the Cloudscape runtime and styles.
+        assert "awsui" in html
+        assert "awsui-dark-mode" in html
+        assert "Well-Architected Foundations Assessment Report" in html
+
+    def test_html_inlines_prebuilt_assets_unchanged(self):
+        """The bundle is inlined byte-for-byte and needs no network access."""
+        html = generate_html(_make_checks(), _make_maturity())
+        for name in ("report-ui.js", "report-ui.css"):
+            asset = (ASSETS_DIR / name).read_text(encoding="utf-8")
+            assert asset.rstrip("\n") in html
+            assert "</script" not in asset.lower()
+            assert "</style" not in asset.lower()
+            assert all(line == line.rstrip() for line in asset.splitlines())
+        assert '<script src="' not in html
+        assert '<link rel="stylesheet"' not in html
+        assert "cdn.jsdelivr.net" not in html
+        assert all(line == line.rstrip() for line in html.splitlines())
+
+    def test_html_has_noscript_fallback(self):
+        """Readers without JavaScript are pointed at the CSV and JSON output."""
+        html = generate_html(_make_checks(), _make_maturity())
+        noscript = html.split("<noscript>", 1)[1].split("</noscript>", 1)[0]
+        assert "requires JavaScript" in noscript
+        assert "CSV and JSON" in noscript
+
+    def test_report_data_contains_assessment_results(self):
+        """The embedded payload carries checks, maturity, and totals."""
         checks = _make_checks()
         maturity = _make_maturity()
-        html = generate_html(checks, maturity)
+        data = _report_data(generate_html(checks, maturity))
 
-        assert "<title>WA-Foundations Report</title>" in html
-        assert "<h1>Well Architected Foundations Assessment Report</h1>" in html
-        assert "<h2>Assessment Overview</h2>" in html
-        assert "<h2>Maturity Progress</h2>" in html
-        assert "L2" in html
-        assert "Established" in html
+        assert data["checks"] == checks
+        assert data["maturity"] == maturity
+        assert data["delegated_admins"] == []
+        assert data["account_info"] == {}
+        assert data["summary"] == {
+            "total": 3,
+            "complete": 1,
+            "incomplete": 1,
+            "errors": 1,
+            "pct": 33,
+        }
 
-    def test_html_explains_maturity_levels_from_scoring_result(self):
-        """HTML shows the scoring rule, ladder, and detailed criteria."""
+    def test_report_data_includes_structured_scoring_model(self):
+        """The UI renders the scoring model returned by the scoring module."""
         checks = _make_checks()
         maturity = calculate_maturity_level(checks)
-        html = generate_html(checks, maturity)
+        data = _report_data(generate_html(checks, maturity))
 
-        assert "How this level is determined" not in html
-        assert "Maturity Methodology" in html
-        assert '<div class="maturity-methodology">' in html
-        assert '<details class="maturity-methodology">' not in html
-        assert "highest maturity level whose required criteria are all complete" in html
-        assert "Well Architected Foundations Assessments model" in html
-        assert "WAFA" not in html
-        assert "Check weights prioritize recommended next steps" in html
-        assert "Level 1 — Base" in html
-        assert "Level 5 — Expert" in html
-        assert "1/4 criteria" in html
-        assert "— Not assessed" in html
-        assert 'class="maturity-level-step current"' in html
-        assert html.index("Check Results") < html.index("Maturity Methodology")
-        assert 'aria-label="Report sections"' in html
-        assert 'href="#overview"' in html
-        assert 'href="#maturity"' in html
-        assert 'href="#methodology"' in html
-        assert 'id="sectionJump"' in html
-        assert "IntersectionObserver" in html
-
-    def test_html_caveats_limited_account_maturity(self):
-        """Limited-account reports explain that maturity is provisional."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(
-            checks,
-            maturity,
-            account_info={
-                "account_id": "222222222222",
-                "account_type": "member",
-                "is_management_account": False,
-            },
-        )
-
-        assert "Limited assessment" in html
-        assert "maturity level is provisional" in html
-        assert "management account for a complete maturity assessment" in html
-
-    def test_html_contains_check_table(self):
-        """HTML report contains all check names."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert "AWS Organization exists" in html
-        assert "Service Control Policies enabled" in html
-        assert "Control Tower deployed" in html
-        assert 'aria-label="Check result status definitions"' in html
-        assert "Verified and meets the criterion." in html
-        assert "Verified but does not meet the criterion." in html
-        assert "Could not be reliably assessed" in html
+        model = data["maturity"]["scoring_model"]
+        assert len(model["levels"]) == 5
         assert (
-            "An Error does not necessarily mean the configuration is incorrect." in html
+            "highest maturity level whose required criteria are all complete"
+            in model["rule"]
+        )
+        assert (
+            "Check weights prioritize recommended next steps" in (model["weight_note"])
+        )
+        assert [level["state"] for level in model["levels"]].count("current") == 1
+
+    def test_report_data_includes_capability_axes(self):
+        """Every capability axis is sent to the chart, including gaps."""
+        data = _report_data(generate_html(_make_checks(), _make_maturity()))
+        axes = {axis["name"]: axis for axis in data["axis_scores"]}
+
+        assert list(axes) == list(CAPABILITY_AXES)
+        assert axes["Networking & Connectivity"] == {
+            "name": "Networking & Connectivity",
+            "score": 0,
+            "check_count": 0,
+        }
+        assert axes["Multi-Account Environment"]["check_count"] == len(
+            CAPABILITY_AXES["Multi-Account Environment"]
         )
 
-    def test_html_escapes_untrusted_check_content(self):
-        """Dynamic check content cannot inject HTML or script tags."""
-        checks = _make_checks()
-        checks[0]["description"] = '<script>alert("xss")</script>'
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert "<script>alert" not in html
-        assert "&lt;script&gt;alert" in html
-
-    def test_html_contains_radar_chart(self):
-        """HTML report includes a self-contained encoded radar chart."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert 'id="radarChart"' in html
-        # The SVG is inlined directly in the HTML (not a base64 data-URI image)
-        # so the label text can follow the page's light/dark theme via CSS.
-        assert "data:image/svg+xml;base64," not in html
-        svg = html.split("<svg ", 1)[1].split("</svg>", 1)[0]
-        # Namespace still declared (harmless when inline, required if extracted).
-        assert 'xmlns="http://www.w3.org/2000/svg"' in svg
-        # Labels are theme-aware via the .radar-label class and shared text
-        # variable — no hardcoded per-label fill in the SVG.
-        assert 'class="radar-label"' in svg
-        assert 'font-size="20"' in svg
-        assert 'fill="#1a1a2e"' not in svg
-        assert 'fill="#8a8f98"' not in svg
-        # Theme-aware CSS drives high-contrast geometry, data, and label colors.
-        assert 'class="radar-grid"' in svg
-        assert 'class="radar-spoke"' in svg
-        assert 'class="radar-data"' in svg
-        assert ".radar-label" in html
-        assert ".radar-grid" in html
-        assert ".radar-data" in html
-        assert "fill: var(--text);" in html
-        # The viewBox is padded horizontally so long axis labels are not clipped.
-        view_box = svg.split('viewBox="', 1)[1].split('"', 1)[0]
-        min_x, _, view_w, _ = (float(v) for v in view_box.split())
-        assert min_x < 0 and view_w > 560
-
-    def test_html_contains_assessment_overview(self):
-        """HTML overview combines maturity and check-result totals."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert "Assessment Overview" in html
-        assert "Executive Summary" not in html
-        assert "Total Checks" in html
-        assert "Complete" in html
-        assert "Incomplete" in html
-        assert html.index("Assessment Overview") < html.index("Maturity Progress")
-
-    def test_html_contains_theme_toggle(self):
-        """HTML has light/dark mode toggle."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert "toggleTheme" in html
-        assert "data-theme" in html
-        assert "--accent: #1F2A44;" in html
-        assert "--accent: #78A9FF;" in html
-        assert "--link: #2F6FED;" in html
-        assert "--radar-fill: #FF9900;" in html
-
-    def test_html_contains_delegated_admins(self):
-        """HTML shows delegated administrators when provided."""
-        checks = _make_checks()
-        maturity = _make_maturity()
+    def test_report_data_includes_account_and_delegated_admins(self):
+        """Account context and delegated administrators reach the UI."""
         admins = [
             {
                 "accountId": "222222222222",
@@ -210,31 +169,48 @@ class TestGenerateHtml:
                 "services": ["guardduty.amazonaws.com"],
             }
         ]
-        html = generate_html(checks, maturity, delegated_admins=admins)
+        account_info = {
+            "account_id": "222222222222",
+            "account_type": "member",
+            "is_management_account": False,
+        }
+        data = _report_data(
+            generate_html(
+                _make_checks(),
+                _make_maturity(),
+                delegated_admins=admins,
+                account_info=account_info,
+            )
+        )
 
-        assert "222222222222" in html
-        assert "Security" in html
-        assert "guardduty.amazonaws.com" in html
-        assert 'href="#delegated-admins"' in html
-        assert 'id="delegated-admins"' in html
+        assert data["delegated_admins"] == admins
+        assert data["account_info"] == account_info
 
-    def test_html_no_delegated_admins_section_when_empty(self):
-        """HTML omits delegated admins section when list is empty."""
+    def test_html_escapes_untrusted_check_content(self):
+        """Dynamic check content cannot break out of the JSON data element."""
         checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity, delegated_admins=[])
+        checks[0]["description"] = '</script><script>alert("xss")</script>'
+        checks[1]["check"] = "<!-- & ' \u2028"
+        html = generate_html(checks, _make_maturity())
 
-        assert "Delegated Administrators" not in html
-        assert 'href="#delegated-admins"' not in html
+        assert "<script>alert" not in html
+        assert "</script><script>" not in html
+        assert "\\u003c/script\\u003e" in html
+        data = _report_data(html)
+        assert data["checks"][0]["description"] == checks[0]["description"]
+        assert data["checks"][1]["check"] == checks[1]["check"]
 
-    def test_html_contains_remediation_links(self):
-        """HTML has remediation links for each check."""
-        checks = _make_checks()
-        maturity = _make_maturity()
-        html = generate_html(checks, maturity)
-
-        assert "https://docs.aws.amazon.com/example" in html
-        assert "Fix →" in html
+    def test_report_data_serializes_non_json_values(self):
+        """Non-JSON AWS values are stringified like the raw JSON export."""
+        created = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        data = _report_data(
+            generate_html(
+                _make_checks(),
+                _make_maturity(),
+                account_info={"account_id": "111111111111", "created": created},
+            )
+        )
+        assert data["account_info"]["created"] == str(created)
 
 
 class TestCalculateAxisScores:
@@ -263,13 +239,6 @@ class TestCalculateAxisScores:
         scores = _calculate_axis_scores(checks)
         assert scores["Networking & Connectivity"] == 0
         assert len(scores) == 7
-
-    def test_report_has_no_external_chart_dependency(self):
-        """The report embeds the radar and has no external chart dependency."""
-        html = generate_html(_make_checks(), _make_maturity())
-        assert 'id="radarChart"' in html
-        assert "cdn.jsdelivr.net" not in html
-        assert all(line == line.rstrip() for line in html.splitlines())
 
     def test_partial_scores(self):
         """Partial completion shows proportional score."""
@@ -324,3 +293,30 @@ class TestGenerateCsv:
         csv_content = generate_csv(checks)
 
         assert "AccessDenied" in csv_content
+
+    def test_sample_verifier_rejects_non_name_csv_drift(self, tmp_path):
+        """Sample verification compares every CSV field with raw JSON."""
+        checks = _make_checks()
+        maturity = calculate_maturity_level(checks)
+        raw = {"checks": checks, "maturity": maturity}
+
+        (tmp_path / "wafa-report.html").write_text(
+            generate_html(checks, maturity), encoding="utf-8"
+        )
+        (tmp_path / "wafa-raw.json").write_text(
+            json.dumps(raw, indent=2) + "\n", encoding="utf-8"
+        )
+        csv_path = tmp_path / "wafa-checks.csv"
+        csv_path.write_text(generate_csv(checks), encoding="utf-8")
+        _verify_outputs(tmp_path)
+
+        rows = list(csv.reader(io.StringIO(csv_path.read_text(encoding="utf-8"))))
+        rows[1][2] = "incomplete"
+        corrupted_csv = io.StringIO()
+        csv.writer(corrupted_csv).writerows(rows)
+        csv_path.write_text(corrupted_csv.getvalue(), encoding="utf-8")
+
+        with pytest.raises(
+            SystemExit, match="wafa-checks.csv data differs from wafa-raw.json checks"
+        ):
+            _verify_outputs(tmp_path)

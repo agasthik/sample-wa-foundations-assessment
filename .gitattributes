@@ -1,0 +1,2 @@
+# CSV exports use RFC 4180 CRLF line endings (Python csv default).
+sample-reports/*.csv whitespace=cr-at-eol

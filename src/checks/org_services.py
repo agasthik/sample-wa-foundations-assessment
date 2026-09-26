@@ -7,7 +7,6 @@ Only runs if the current account is the management account.
 
 import boto3
 
-
 # Service principal → check metadata mapping
 _SERVICE_CHECKS = [
     {
@@ -78,7 +77,7 @@ _SERVICE_CHECKS = [
         "weight": 6,
         "loe": 1,
         "required": True,
-        "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html",
+        "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
     },
     {
         "id": "FR-4.8",
@@ -88,7 +87,7 @@ _SERVICE_CHECKS = [
         "weight": 5,
         "loe": 1,
         "required": False,
-        "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-enable-trusted-access.html",
+        "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html",
     },
     {
         "id": "FR-4.9",
