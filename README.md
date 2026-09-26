@@ -1,8 +1,10 @@
+<!-- markdownlint-configure-file {"MD033":false} -->
+
 # AWS Well-Architected Foundations Assessment (WAFA)
 
 ![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Tests](https://img.shields.io/badge/tests-168%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-170%20passing-brightgreen.svg)
 
 WAFA is an open-source AWS foundations assessment tool. Its assessment checks
 use read, list, and describe APIs to evaluate organization-level configuration
@@ -28,6 +30,7 @@ multi-account landing zone.
 - [Maturity Levels](#maturity-levels)
 - [Account Modes](#account-modes)
 - [Quick Start](#quick-start)
+- [After Your First Assessment](#after-your-first-assessment)
 - [Re-running the Assessment](#re-running-the-assessment)
 - [Deployment Package](#deployment-package)
 - [Viewing Results](#viewing-results)
@@ -62,8 +65,12 @@ multi-account landing zone.
 
 ## Output
 
-- **Self-contained interactive HTML report** with a radar chart covering seven
-  WAFA capability axes, a maturity level from 1–5, and a filterable check table
+- **Self-contained interactive HTML report** built with
+  [Cloudscape Design System](https://cloudscape.design/) components: a
+  capability coverage chart across seven WAFA capability axes, a maturity level
+  from 1–5, a filterable check table, and light and dark modes. The Cloudscape
+  bundle and assessment data are inlined, so the report opens offline; it
+  requires JavaScript
 - **CSV export** for spreadsheet or work-item import
 - **Raw JSON** for automation
 - **Console table** summary
@@ -152,8 +159,8 @@ This will:
 1. Package the assessment code as `wa-foundations-source.zip`.
 2. Upload the package to a region-specific S3 source bucket.
 3. Deploy a CloudFormation stack containing the assessment resources.
-4. Automatically trigger the first CodeBuild assessment.
-5. Wait for the build and display the report location.
+4. Start one CodeBuild assessment and capture its build ID.
+5. Wait for that exact build and display the report location.
 
 **Prerequisites:**
 
@@ -185,6 +192,9 @@ This will:
 
 ### Option B: Run locally (no deployed infrastructure)
 
+<details>
+<summary>Show local run instructions</summary>
+
 **Requires:** Python 3.9+ and AWS credentials. CodeBuild and the stack's Lambda
 function use Python 3.12.
 
@@ -202,7 +212,12 @@ open reports/wafa-report.html
 This runs the assessment with your local credentials and saves reports to disk.
 It does not create an S3 bucket, CodeBuild project, or other deployed resource.
 
+</details>
+
 ### Option C: CloudShell
+
+<details>
+<summary>Show CloudShell instructions</summary>
 
 ```bash
 git clone https://github.com/aws-samples/sample-wa-foundations-assessment.git
@@ -212,9 +227,48 @@ cd sample-wa-foundations-assessment
 
 Download the generated report files from the CloudShell file browser.
 
+</details>
+
+## After Your First Assessment
+
+WAFA produces a point-in-time view of the AWS configuration it can observe. It
+is designed to be rerun as the environment changes, but it does not continuously
+monitor controls, detect drift between runs, or maintain a findings workflow.
+
+Use the first report as a baseline:
+
+1. **Confirm the assessment scope.** Run from the Organizations management
+   account for the full assessment. Results from member and standalone accounts
+   are intentionally limited and their maturity level is provisional.
+2. **Investigate Error results.** An Error means WAFA could not determine the
+   configuration, commonly because of permissions or an AWS API failure. Resolve
+   the assessment problem and rerun before treating the control as complete or
+   incomplete.
+3. **Create a remediation backlog.** Use the CSV export and remediation links to
+   assign an owner, target date, and accepted exception where appropriate.
+4. **Prioritize the next maturity level.** Start with required checks and the
+   report's **Next steps** list. Check weights order those recommendations; they
+   are not a risk score.
+5. **Rerun after remediation.** Confirm that changed checks become Complete and
+   review the new report for errors or regressions.
+
+During active remediation, rerun after each change batch or at least monthly. A
+quarterly review is a reasonable starting cadence for a stable environment.
+Also rerun after major changes to the organization, landing zone, Control Tower,
+identity configuration, or organization-wide security services. Adjust the
+cadence to match your organization's risk and change-management requirements.
+
+The results bucket has S3 versioning enabled, so earlier versions of reports can
+be retained when the same report keys are overwritten. WAFA does not currently
+compare those versions or provide trend reporting. Continuous assessment would
+require separate scheduling, notifications, historical comparison, and findings
+management automation.
+
 ## Re-running the Assessment
 
-After the initial deployment, re-run the default stack at any time:
+Running `deploy.sh` again uploads the current source, updates the stack if the
+template changed, always starts a new build, and waits on the ID returned by
+that `StartBuild` call. To re-run the existing source without redeploying:
 
 ```bash
 aws codebuild start-build \
@@ -239,10 +293,13 @@ globally unique without repeating the stack name.
 
 ## Deployment Package
 
+<details>
+<summary>Show package contents and source bucket details</summary>
+
 `deploy.sh` creates a temporary local file named
 `/tmp/wa-foundations-source-<account-id>.zip`. It contains:
 
-- `src/`
+- `src/`, including the prebuilt Cloudscape report UI in `src/report/assets/`
 - `requirements.txt`
 - `buildspec.yml`
 
@@ -257,9 +314,12 @@ outside CloudFormation and must remain available for future CodeBuild runs.
 Deleting it causes builds to fail during `DOWNLOAD_SOURCE`.
 
 Running `deploy.sh` again uploads the current local source to the same object
-key. Do not place credentials or other sensitive files in the deployment
+key and starts a new CodeBuild run, even when the CloudFormation template is
+unchanged. Do not place credentials or other sensitive files in the deployment
 package. Review the source bucket against your organization's S3 encryption,
 public-access, lifecycle, and retention requirements.
+
+</details>
 
 ## Viewing Results
 
@@ -285,6 +345,9 @@ aws s3 cp \
 The results bucket has versioning enabled. Permanently delete all object
 versions and delete markers before deleting the stack, or CloudFormation cannot
 remove the bucket.
+
+<details>
+<summary>Show teardown commands</summary>
 
 The following Bash example requires `jq`:
 
@@ -349,6 +412,8 @@ aws s3 rb \
   --region "$REGION"
 ```
 
+</details>
+
 ## Deployment Permissions
 
 The deployment identity must be able to perform the AWS CLI operations in
@@ -373,6 +438,9 @@ its service logs, and publish to the optional WAFA SNS topic.
 
 ## Development
 
+<details>
+<summary>Show contributor setup and report UI build instructions</summary>
+
 Runtime usage supports Python 3.9+. Development requires Python 3.10+ because
 the pinned pytest 9 release does not support Python 3.9. CI currently tests
 Python 3.12.
@@ -383,16 +451,42 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 
-# Run tests (168 tests)
+# Run tests (170 tests)
 python -m pytest tests/unit/ -v
 
 # Run with coverage
 python -m pytest tests/unit/ --cov=src --cov-report=term-missing
 ```
 
-The current suite contains 168 tests and reports 95% statement coverage.
+The current suite contains 170 tests and reports 95% statement coverage.
+
+### Report UI
+
+The HTML report UI is a React app built from
+[Cloudscape Design System](https://cloudscape.design/) components in
+`report-ui/`. Its build output, `src/report/assets/report-ui.js` and
+`src/report/assets/report-ui.css`, is committed so that running an assessment
+needs only Python. Node.js is required only to change the report UI:
+
+```bash
+cd report-ui
+npm ci
+npm test          # Cloudscape component tests (Vitest + jsdom)
+npm run build     # Rebuild src/report/assets/
+cd ..
+python -m scripts.generate_sample_report
+```
+
+Commit the rebuilt assets and regenerated sample reports with the UI change. CI
+rebuilds the bundle, regenerates the sample reports through the production
+orchestrator, and fails if either tracked output is stale.
+
+</details>
 
 ## Project Structure
+
+<details>
+<summary>Show repository tree</summary>
 
 ```text
 sample-wa-foundations-assessment/
@@ -410,9 +504,11 @@ sample-wa-foundations-assessment/
 │   │   ├── delegated_admin.py   # FR-9: Informational admins
 │   │   └── maturity.py          # FR-11: Level 1–5 scoring
 │   └── report/
-│       ├── html_report.py       # Interactive HTML and SVG radar
+│       ├── html_report.py       # HTML shell and report data payload
+│       ├── assets/              # Built Cloudscape UI bundle (generated)
 │       └── csv_export.py        # CSV export
-├── tests/unit/                  # 168 pytest tests, 95% coverage
+├── report-ui/                   # Cloudscape React source for the HTML report
+├── tests/unit/                  # 170 pytest tests, 95% coverage
 ├── deployment/
 │   └── wafa-stack.yaml          # CloudFormation template
 ├── deploy.sh                    # Deployment script
@@ -421,6 +517,8 @@ sample-wa-foundations-assessment/
 ├── requirements.txt             # Runtime dependencies
 └── requirements-dev.txt         # Development and test dependencies
 ```
+
+</details>
 
 ## Related AWS Resources
 

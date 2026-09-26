@@ -1,6 +1,7 @@
 # WAFA Test Cases
 
-A shared test plan for validating WAFA (Well-Architected Foundations Assessment).
+This is a shared test plan for validating WAFA (Well-Architected Foundations
+Assessment).
 Grouped by area so multiple testers can claim sections in parallel. Each case has
 a stable ID, preconditions, steps, and expected result.
 
@@ -137,6 +138,24 @@ Owner: ____
 - **Steps:** `aws codebuild start-build --project-name <stack> --profile <p> --region <r>`
 - **Expected:** New build runs; reports overwritten in `s3://<results-bucket>/<account-id>/`.
 
+### A8a. Redeploy with an unchanged template
+
+- **Precondition:** Stack already deployed; change only files under `src/`.
+- **Steps:** `./deploy.sh --profile <mgmt> --region us-east-1`
+- **Expected:** CloudFormation reports no changes without failing the script;
+  the script uploads the new source, starts a new build, prints its build ID,
+  and waits on that build (not an earlier one). The new report reflects the
+  updated source.
+
+### A8b. Concurrent unrelated build during deployment
+
+- **Precondition:** Stack already deployed.
+- **Steps:** Start `deploy.sh`, then manually start the same CodeBuild project
+  while CloudFormation deployment is in progress.
+- **Expected:** The script starts its own build after CloudFormation completes
+  and waits on the exact ID returned by that `StartBuild` call. The unrelated
+  build's status does not determine deployment success.
+
 ### A9. Teardown
 - **Steps:** `aws cloudformation delete-stack --stack-name <stack>` then
   `aws s3 rb s3://wa-foundations-source-<acct>-<region> --force`
@@ -249,6 +268,8 @@ For each, set up the "good" and "bad" state and confirm status flips correctly.
 ### E5. Cost and Usage Report (FR-7.7, management only)
 - Legacy CUR present → complete; none but a CUR 2.0 Data Export present → complete;
   neither → incomplete; API error with no report → error (not false incomplete).
+- Paginated results: a report on a later page is found via `NextToken`, and
+  empty pages end in incomplete rather than looping.
 
 ### E6. Org service integrations (FR-4)
 - Enable/disable a service (e.g. GuardDuty) at the org level and confirm the matching
@@ -297,20 +318,29 @@ Owner: ____
 
 Owner: ____
 
-### G1. Radar chart renders (regression guard)
-- Open wafa-report.html in a browser. **Expected:** the capability radar chart displays
-  (7 axes, orange polygon) — NOT a broken-image icon.
-- **Why:** guards the `xmlns` SVG fix.
+### G1. Capability coverage chart renders (regression guard)
+- Open wafa-report.html in a browser. **Expected:** the Cloudscape capability
+  coverage bar chart displays all 7 axes, with Networking & Connectivity at 0%
+  and a note explaining the gap.
+- **Why:** guards the inlined Cloudscape bundle and the axis payload.
 
 ### G2. Report opens offline
-- Disconnect network, open the HTML. **Expected:** fully renders (no CDN dependency;
-  chart is an embedded SVG data URI).
+- Disconnect network, open the HTML. **Expected:** fully renders (no CDN
+  dependency; the Cloudscape JS, CSS, fonts, and report data are inlined).
+- With JavaScript disabled, the `<noscript>` message points to the CSV and JSON.
 
 ### G3. Light/dark theme toggle
-- Toggle works; both themes readable.
+- The sun/moon icon at the top right of the top navigation switches Cloudscape
+  light and dark modes; both themes are readable. The initial mode follows the
+  browser's color-scheme preference.
+
+### G3a. Repository footer
+- The report footer names `aws-samples/sample-wa-foundations-assessment` and
+  links to <https://github.com/aws-samples/sample-wa-foundations-assessment>.
 
 ### G4. Check table filters
-- Filter buttons (complete/incomplete/error) filter rows correctly.
+- The status segmented control (All/Complete/Incomplete/Errors) and the text
+  filter narrow table rows correctly.
 
 ### G5. CSV export integrity
 - Open wafa-checks.csv. **Expected:** header row + one row per check; 8 columns; error
@@ -356,6 +386,6 @@ Owner: ____
 If testers are limited, cover these first (highest signal):
 1. A1, A2, **A3** (the suspected remaining region bug)
 2. C1, C2, C3 (account modes)
-3. G1, G2 (report + radar regression guards)
+3. G1, G2 (report + capability chart regression guards)
 4. D3 (multi-region resource detection)
 5. H1 (resilience)

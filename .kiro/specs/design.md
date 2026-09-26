@@ -13,12 +13,12 @@ Customer runs `python -m src.main --output ./reports` with local credentials.
 ### Option B: CloudFormation + CodeBuild
 
 ```
-Customer deploys CloudFormation stack (one-click)
+Customer deploys a CloudFormation stack (one-click)
   → Deployment script uploads source to S3
   → Creates: IAM Role + CodeBuild + results S3 Bucket
   → CodeBuild runs automatically
   → Report lands in S3
-  → Re-runnable anytime
+  → Can be rerun at any time
 ```
 
 - One-time deployment
@@ -44,10 +44,10 @@ wafa/
 │   │   ├── account_type.py  # Detect mgmt vs member vs standalone
 │   │   └── regions.py       # Discover enabled regions
 │   └── report/
-│       ├── html_report.py   # Generate interactive HTML
+│       ├── html_report.py   # HTML shell + JSON report data (Jinja2 sandbox)
 │       ├── csv_export.py    # Jira/Asana importable CSV
-│       └── templates/
-│           └── report.html  # Jinja2 template
+│       └── assets/          # Prebuilt Cloudscape UI bundle (generated)
+├── report-ui/               # Cloudscape React source for the HTML report
 ├── deployment/
 │   └── wafa-stack.yaml      # CloudFormation template (Option B)
 ├── buildspec.yml            # CodeBuild instructions (Option B)
@@ -187,7 +187,10 @@ The stack creates:
 2. A CodeBuild project using an S3 source and the `aws/codebuild/standard:7.0` image.
 3. An explicit-action IAM role for assessment APIs, source reads, report writes, and logs.
 4. An optional SNS topic/subscription when `EmailAddress` is supplied.
-5. An inline Python 3.12 Lambda Custom Resource that starts the first build.
+5. An inline Python 3.12 Lambda Custom Resource that starts the first build by
+   default for direct CloudFormation deployments. `deploy.sh` disables that
+   trigger, starts one build directly after deployment, and waits on the build
+   ID returned by `StartBuild`.
 
 The assessment role uses read-only AWS service APIs plus `s3:PutObject` for report
 uploads. The source bucket permissions are limited to the named source bucket.
