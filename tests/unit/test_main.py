@@ -6,6 +6,7 @@ Tests both management account (full) and non-management account (limited) flows.
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -46,6 +47,82 @@ def test_deployment_names_use_wa_foundations_prefix():
     assert 'PROJECT_NAME="$STACK_NAME"' in deploy_script
     assert 'STACK_NAME="wafa"' not in deploy_script
     assert 'PROJECT_NAME="WAFA-${STACK_NAME}"' not in deploy_script
+
+
+def test_deploy_waits_for_build_id_returned_by_start_build(tmp_path):
+    """Deployment waits on its own build even when other builds may exist."""
+    repository_root = Path(__file__).resolve().parents[2]
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    call_log = tmp_path / "aws-calls.log"
+
+    fake_aws = fake_bin / "aws"
+    fake_aws.write_text(
+        """#!/bin/bash
+set -eu
+printf '%s\\n' "$*" >> "$AWS_CALL_LOG"
+case "$1 $2" in
+    "sts get-caller-identity")
+        echo "111111111111"
+        ;;
+    "s3 ls"|"s3 cp"|"cloudformation deploy")
+        ;;
+    "codebuild start-build")
+        echo "wa-foundations-assessment:deployment-build"
+        ;;
+    "cloudformation describe-stacks")
+        echo "wa-foundations-results-example"
+        ;;
+    "codebuild batch-get-builds")
+        case " $* " in
+            *" --ids wa-foundations-assessment:deployment-build "*)
+                echo "SUCCEEDED"
+                ;;
+            *)
+                echo "batch-get-builds used the wrong build ID: $*" >&2
+                exit 42
+                ;;
+        esac
+        ;;
+    *)
+        echo "Unexpected AWS command: $*" >&2
+        exit 99
+        ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    fake_aws.chmod(0o755)
+
+    fake_zip = fake_bin / "zip"
+    fake_zip.write_text(
+        '#!/bin/bash\nset -eu\n: > "$2"\n',
+        encoding="utf-8",
+    )
+    fake_zip.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    env["AWS_CALL_LOG"] = str(call_log)
+    result = subprocess.run(
+        ["bash", "deploy.sh", "--profile", "test-profile", "--region", "us-east-1"],
+        cwd=repository_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = call_log.read_text(encoding="utf-8")
+    assert calls.count("codebuild start-build ") == 1
+    assert "codebuild list-builds-for-project" not in calls
+    assert "AutoStartBuild=false" in calls
+    assert (
+        "codebuild batch-get-builds "
+        "--ids wa-foundations-assessment:deployment-build" in calls
+    )
+    assert "Build: wa-foundations-assessment:deployment-build" in result.stdout
 
 
 # ============================================================================
@@ -415,9 +492,8 @@ class TestRunManagementAccount:
         # Verify HTML content
         with open(os.path.join(output_dir, "wafa-report.html")) as f:
             html = f.read()
-        assert "radarChart" in html
-        assert "Assessment Overview" in html
-        assert "Maturity Progress" in html
+        assert 'id="wafa-report-root"' in html
+        assert 'id="wafa-report-data"' in html
         assert "AWS Organization exists" in html
 
         # Verify CSV content

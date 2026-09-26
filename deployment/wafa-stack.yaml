@@ -22,6 +22,17 @@ Parameters:
     Default: 'wa-foundations-source.zip'
     Description: S3 object key for the assessment source archive.
 
+  AutoStartBuild:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: >
+      Start the first assessment when CloudFormation creates the stack.
+      deploy.sh disables this and starts a build directly so it can wait on
+      the exact build ID.
+
 Conditions:
   CreateSNSTopic: !Not [!Equals [!Ref EmailAddress, '']]
 
@@ -256,6 +267,13 @@ Resources:
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                   return
 
+              auto_start = event['ResourceProperties'].get('AutoStartBuild', 'true')
+              if event['RequestType'] != 'Create' or auto_start != 'true':
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'Message': 'No automatic build requested'
+                  })
+                  return
+
               try:
                   project_name = event['ResourceProperties']['ProjectName']
                   client = boto3.client('codebuild')
@@ -273,6 +291,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt WAFATriggerLambda.Arn
       ProjectName: !Ref WAFAProject
+      AutoStartBuild: !Ref AutoStartBuild
 
 Outputs:
   ResultsBucket:
