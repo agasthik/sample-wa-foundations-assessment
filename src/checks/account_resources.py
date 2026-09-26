@@ -5,10 +5,10 @@ FR-7 checks use concurrent region scanning for performance (NFR-2.2).
 FR-8 only runs from management account.
 """
 
-import boto3
-from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import boto3
+from botocore.exceptions import ClientError
 
 _REGION_UNAVAILABLE_CODES = {
     "InvalidRegion",
@@ -352,24 +352,26 @@ def check_cur_report(default_region="us-east-1"):
 
     try:
         client = boto3.client("cur", region_name=default_region)
+        kwargs = {}
         while True:
-            resp = client.describe_report_definitions()
-            has_report = has_report or bool(resp.get("ReportDefinitions", []))
+            resp = client.describe_report_definitions(**kwargs)
+            has_report = bool(resp.get("ReportDefinitions", []))
             if has_report or not resp.get("NextToken"):
                 break
-            resp = client.describe_report_definitions(NextToken=resp["NextToken"])
+            kwargs = {"NextToken": resp["NextToken"]}
     except Exception as e:
         errors.append(f"cur: {e}")
 
     if not has_report and not default_region.startswith(("us-gov-", "cn-")):
         try:
             client = boto3.client("bcm-data-exports", region_name=default_region)
+            kwargs = {}
             while True:
-                resp = client.list_exports()
-                has_report = has_report or bool(resp.get("Exports", []))
+                resp = client.list_exports(**kwargs)
+                has_report = bool(resp.get("Exports", []))
                 if has_report or not resp.get("NextToken"):
                     break
-                resp = client.list_exports(NextToken=resp["NextToken"])
+                kwargs = {"NextToken": resp["NextToken"]}
         except Exception as e:
             errors.append(f"bcm-data-exports: {e}")
 

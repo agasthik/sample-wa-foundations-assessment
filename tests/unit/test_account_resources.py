@@ -1,20 +1,20 @@
 """Unit tests for src/checks/account_resources.py — FR-7 and FR-8."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
 from src.checks.account_resources import (
     check_cloudtrail_exists,
     check_cloudtrail_org_trail,
-    check_config_recorder,
     check_config_delivery_channel,
+    check_config_recorder,
+    check_cur_report,
     check_no_ec2_instances,
     check_no_vpcs,
-    check_cur_report,
     check_stacksets_org_access,
     run_all,
 )
-
 
 MOCK_REGIONS = ["us-east-1", "eu-west-1"]
 
@@ -356,6 +356,60 @@ class TestCheckCurReport:
 
         result = check_cur_report("us-east-1")
         assert result["status"] == "complete"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_complete_legacy_cur_on_later_page(self, mock_client):
+        """A legacy report on a later page is found by following NextToken."""
+        side_effect, mock_cur, _ = _cur_clients()
+        mock_cur.describe_report_definitions.return_value = None
+        mock_cur.describe_report_definitions.side_effect = [
+            {"ReportDefinitions": [], "NextToken": "page-2"},
+            {"ReportDefinitions": [{"ReportName": "my-cur"}]},
+        ]
+        mock_client.side_effect = side_effect
+
+        result = check_cur_report("us-east-1")
+
+        assert result["status"] == "complete"
+        calls = mock_cur.describe_report_definitions.call_args_list
+        assert [call.kwargs for call in calls] == [{}, {"NextToken": "page-2"}]
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_complete_data_exports_on_later_page(self, mock_client):
+        """A Data Exports report on a later page is found via NextToken."""
+        side_effect, _, mock_exports = _cur_clients()
+        mock_exports.list_exports.return_value = None
+        mock_exports.list_exports.side_effect = [
+            {"Exports": [], "NextToken": "page-2"},
+            {"Exports": [{"ExportName": "MyNewCUR-2025"}]},
+        ]
+        mock_client.side_effect = side_effect
+
+        result = check_cur_report("us-east-1")
+
+        assert result["status"] == "complete"
+        calls = mock_exports.list_exports.call_args_list
+        assert [call.kwargs for call in calls] == [{}, {"NextToken": "page-2"}]
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_incomplete_after_all_pages_empty(self, mock_client):
+        """Empty paginated results terminate and resolve to incomplete."""
+        side_effect, mock_cur, mock_exports = _cur_clients()
+        mock_cur.describe_report_definitions.side_effect = [
+            {"ReportDefinitions": [], "NextToken": "cur-2"},
+            {"ReportDefinitions": []},
+        ]
+        mock_exports.list_exports.side_effect = [
+            {"Exports": [], "NextToken": "exports-2"},
+            {"Exports": []},
+        ]
+        mock_client.side_effect = side_effect
+
+        result = check_cur_report("us-east-1")
+
+        assert result["status"] == "incomplete"
+        assert mock_cur.describe_report_definitions.call_count == 2
+        assert mock_exports.list_exports.call_count == 2
 
     @patch("src.checks.account_resources.boto3.client")
     def test_incomplete(self, mock_client):
