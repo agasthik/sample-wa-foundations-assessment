@@ -1,12 +1,12 @@
 """Unit tests for src/discovery/ — FR-2: account type detection and region discovery."""
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from src.discovery.account_type import detect_account_type, detect_partition
-from src.discovery.regions import get_enabled_regions, DEFAULT_REGIONS
-
+from src.discovery.regions import DEFAULT_REGIONS, get_enabled_regions
 
 # ============================================================================
 # FR-2.1 / FR-2.2: Account Type Detection

@@ -10,19 +10,19 @@ import os
 
 import boto3
 
-from src.discovery.account_type import detect_account_type, detect_partition
-from src.discovery.regions import get_enabled_regions
 from src.checks import (
-    organization,
-    org_services,
+    account_resources,
     control_tower,
     identity,
-    account_resources,
+    org_services,
+    organization,
 )
 from src.checks.delegated_admin import get_delegated_administrators
 from src.checks.maturity import calculate_maturity_level
-from src.report.html_report import generate_html
+from src.discovery.account_type import detect_account_type, detect_partition
+from src.discovery.regions import get_enabled_regions
 from src.report.csv_export import generate_csv
+from src.report.html_report import generate_html
 
 
 def parse_args():

@@ -1,0 +1,79 @@
+name: Report UI and Samples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "report-ui/**"
+      - "src/**"
+      - "scripts/generate_sample_report.py"
+      - "sample-reports/**"
+      - ".github/workflows/report-ui.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "report-ui/**"
+      - "src/**"
+      - "scripts/generate_sample_report.py"
+      - "sample-reports/**"
+      - ".github/workflows/report-ui.yml"
+  schedule:
+    # Weekly scan to catch newly disclosed advisories in pinned dependencies.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: report-ui/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        working-directory: report-ui
+        run: npm ci
+
+      - name: Install report generator dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Audit dependencies
+        working-directory: report-ui
+        run: npm audit --audit-level=moderate
+
+      - name: Run UI tests
+        working-directory: report-ui
+        run: npm test
+
+      - name: Verify committed bundle is up to date
+        working-directory: report-ui
+        # The Python report generator inlines src/report/assets/ as-is, so the
+        # committed bundle must match a clean build of report-ui/.
+        run: |
+          npm run build
+          git diff --exit-code -- ../src/report/assets/ || {
+            echo "::error::src/report/assets/ is stale. Run 'npm run build' in report-ui/ and commit the result."
+            exit 1
+          }
+
+      - name: Verify committed sample reports are up to date
+        run: |
+          python -m scripts.generate_sample_report
+          git diff --exit-code -- sample-reports/ || {
+            echo "::error::sample-reports/ is stale. Run 'python -m scripts.generate_sample_report' and commit the result."
+            exit 1
+          }

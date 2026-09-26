@@ -37,3 +37,8 @@ reports/
 
 # Ignore
 archive/
+# Report UI build dependencies
+node_modules/
+
+# Local CodeGraph index and runtime state
+.codegraph/

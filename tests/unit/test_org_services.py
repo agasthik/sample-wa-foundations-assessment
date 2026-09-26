@@ -1,9 +1,10 @@
 """Unit tests for src/checks/org_services.py — FR-4: Organization Service Integration Checks."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
-from src.checks.org_services import run_all, check_org_service
+from src.checks.org_services import check_org_service, run_all
 
 
 class TestRunAll:
