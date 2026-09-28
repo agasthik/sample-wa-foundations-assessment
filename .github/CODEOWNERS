@@ -1,0 +1,23 @@
+# Code owners are requested for review automatically on every pull request.
+# An approval from any one listed owner satisfies a code-owner review.
+# The last matching pattern takes precedence, so keep specific paths below
+# the default rule.
+
+# Default owners for everything in the repository.
+* @aadil79 @agasthik
+
+# Deployed infrastructure, IAM permissions, and deployment scripts.
+/deployment/ @aadil79 @agasthik
+/deploy.sh @aadil79 @agasthik
+/buildspec.yml @aadil79 @agasthik
+/run-local.sh @aadil79 @agasthik
+
+# Assessment checks and maturity scoring (read-only AWS API contract).
+/src/checks/ @aadil79 @agasthik
+
+# Report UI source and the generated bundle inlined into every report.
+/report-ui/ @aadil79 @agasthik
+/src/report/ @aadil79 @agasthik
+
+# CI workflows, repository automation, and this file.
+/.github/ @aadil79 @agasthik

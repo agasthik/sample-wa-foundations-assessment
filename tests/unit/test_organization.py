@@ -1,23 +1,23 @@
 """Unit tests for src/checks/organization.py — FR-3: Organization Governance Checks."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
 from src.checks.organization import (
-    check_org_exists,
+    check_audit_account,
+    check_backup_policy_enabled,
+    check_infrastructure_ou,
+    check_log_archive_account,
     check_management_account,
     check_minimum_accounts,
-    check_log_archive_account,
-    check_audit_account,
-    check_scp_enabled,
-    check_tag_policy_enabled,
-    check_backup_policy_enabled,
+    check_org_exists,
     check_rcp_enabled,
+    check_scp_enabled,
     check_security_ou,
+    check_tag_policy_enabled,
     check_workloads_ou,
-    check_infrastructure_ou,
 )
-
 
 # ============================================================================
 # FR-3.1: Org Exists

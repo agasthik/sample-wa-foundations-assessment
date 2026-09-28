@@ -45,6 +45,7 @@ Important modules:
 - `src/discovery/`: account, partition, and Region discovery
 - `src/checks/`: assessment checks and maturity scoring
 - `src/report/`: HTML and CSV generation
+- `report-ui/`: Cloudscape React source for the HTML report bundle
 - `deployment/wafa-stack.yaml`: deployed resources and execution permissions
 - `deploy.sh`: source packaging, deployment, and initial-run workflow
 - `run-local.sh`: local and CloudShell assessment workflow
@@ -124,6 +125,10 @@ cfn-lint deployment/*.yaml
 
 npx --yes markdownlint-cli2 README.md AGENTS.md
 git diff --check
+
+# When report-ui/ or src/report/assets/ changed:
+(cd report-ui && npm ci && npm audit --audit-level=moderate && npm test \
+  && npm run build) && git diff --exit-code -- src/report/assets/
 ```
 
 Run focused tests while iterating, but run the complete unit suite before
@@ -165,7 +170,9 @@ Every pass/fail check returns a flat dictionary containing:
 
 Check requirements:
 
-- Catch API and evaluation failures and return `status: "error"`.
+- Catch API and evaluation failures and return `status: "error"`. Broad
+  `except Exception` handlers are intentional here; `ruff.toml` scopes the
+  BLE001 exemption to `src/checks/` and `src/discovery/` only.
 - Do not crash the assessment because one check failed.
 - Distinguish an observed absence (`incomplete`) from an inability to determine
   state (`error`).
@@ -233,13 +240,25 @@ must render the structured data returned by the scoring module.
 The generated report must remain a self-contained HTML document:
 
 - no CDN or runtime network dependency
-- inline CSS, JavaScript, and radar SVG
-- Jinja2 sandbox with autoescaping for dynamic content
-- responsive light and dark themes
+- real Cloudscape Design System components, not hand-written look-alikes
+- inline Cloudscape JavaScript and CSS bundle from `src/report/assets/`
+- assessment data embedded as JSON with Jinja2's `tojson` filter
+- Jinja2 sandbox with autoescaping for the HTML shell
+- responsive light and dark themes through Cloudscape `applyMode`
 - no trailing whitespace in generated output
 
+The UI source lives in `report-ui/` (React, Cloudscape, esbuild, Vitest).
+`src/report/assets/report-ui.js` and `report-ui.css` are generated artifacts:
+do not hand-edit them. After changing `report-ui/`, run `npm ci`, `npm test`,
+and `npm run build` in `report-ui/`, commit the rebuilt assets, and regenerate
+the sample reports. The build escapes `</script` and `</style` and fails on
+remote resource URLs or trailing whitespace. Keep npm dependencies pinned
+through `package-lock.json`.
+
 Use `safe` only for markup generated entirely by trusted repository code, such
-as the inline radar SVG. Never mark AWS-provided or user-controlled text safe.
+as the prebuilt report UI bundle. Never mark AWS-provided or user-controlled
+text safe; pass it to the UI through the `tojson` payload, where React renders
+it as text.
 
 The report should clearly distinguish:
 
@@ -250,7 +269,8 @@ The report should clearly distinguish:
 - complete, incomplete, error, and not-assessed criteria
 - provisional maturity for non-management accounts
 
-`CAPABILITY_AXES` maps capability names to exact check-name strings. A check may
+`CAPABILITY_AXES` maps capability names to exact check-name strings and feeds
+the Cloudscape capability coverage bar chart. A check may
 contribute to more than one axis. Update this mapping whenever a relevant check
 is added, removed, or renamed.
 
@@ -278,13 +298,20 @@ The generator must:
 - exercise complete, incomplete, and error states
 - remain deterministic
 
-After regeneration, verify that:
+If `report-ui/` changed, rebuild `src/report/assets/` before regenerating. The
+generator stops if the UI assets are missing and, after generating, fails
+unless:
 
-- HTML, CSV, and JSON are mutually consistent
+- the HTML inlines the current UI bundle and embeds the report data
+- the HTML report data, CSV, and JSON are mutually consistent
 - the JSON includes a five-level `scoring_model`
-- the HTML includes the maturity ladder and detailed criteria
-- no real identifiers or credentials appear
-- generated files have no trailing whitespace
+- complete, incomplete, and error states are all present
+- the HTML and JSON have no trailing whitespace
+
+Still review manually that no real identifiers or credentials appear and that
+the report renders its maturity ladder and detailed criteria in a browser.
+`sample-reports/*.csv` uses CRLF line endings; `.gitattributes` exempts them
+from `git diff --check`.
 
 Do not manually edit the generated HTML, CSV, or JSON.
 
@@ -292,7 +319,7 @@ Do not manually edit the generated HTML, CSV, or JSON.
 
 `deploy.sh` packages only:
 
-- `src/`
+- `src/`, including the committed report UI bundle in `src/report/assets/`
 - `requirements.txt`
 - `buildspec.yml`
 
@@ -307,6 +334,11 @@ It is uploaded to:
 ```text
 s3://wa-foundations-source-<account-id>-<region>/wa-foundations-source.zip
 ```
+
+The `AutoStartBuild` parameter defaults to `true`, so direct CloudFormation
+stack creation uses the custom resource to start the first build. `deploy.sh`
+sets the parameter to `false`, tolerates an empty change set, starts one build
+itself, and waits on the exact build ID returned by CodeBuild.
 
 The source bucket is outside the CloudFormation stack and must remain available
 for CodeBuild reruns. The results bucket is created by CloudFormation and has

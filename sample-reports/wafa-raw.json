@@ -17,7 +17,7 @@
       "AWS Config recorder active"
     ],
     "scoring_model": {
-      "rule": "The Well Architected Foundations Assessments model assigns the highest maturity level whose required criteria are all complete.",
+      "rule": "The Well-Architected Foundations Assessment model assigns the highest maturity level whose required criteria are all complete.",
       "weight_note": "Check weights prioritize recommended next steps; they do not change the maturity level.",
       "levels": [
         {
@@ -183,7 +183,7 @@
         {
           "level": 5,
           "name": "Expert",
-          "description": "Every check returned by the current Well Architected Foundations Assessments report is complete.",
+          "description": "Every check returned by the current Well-Architected Foundations Assessment report is complete.",
           "state": "locked",
           "criteria": [
             {
@@ -225,7 +225,7 @@
       "required": true,
       "weight": 6,
       "loe": 2,
-      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html"
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-ous-and-accounts.html"
     },
     {
       "check": "Log Archive account exists",
@@ -243,7 +243,7 @@
       "required": true,
       "weight": 6,
       "loe": 2,
-      "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html"
+      "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/security-tooling.html"
     },
     {
       "check": "Service Control Policies enabled",
@@ -288,7 +288,7 @@
       "required": true,
       "weight": 6,
       "loe": 2,
-      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html"
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#security-ou"
     },
     {
       "check": "Workloads OU exists",
@@ -297,7 +297,7 @@
       "required": false,
       "weight": 5,
       "loe": 2,
-      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html"
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/application-ous.html#workloads-ou"
     },
     {
       "check": "Infrastructure OU exists",
@@ -306,7 +306,7 @@
       "required": false,
       "weight": 5,
       "loe": 2,
-      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html"
+      "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#infrastructure-ou"
     },
     {
       "check": "CloudTrail organization service enabled",
@@ -369,7 +369,7 @@
       "required": true,
       "weight": 6,
       "loe": 1,
-      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html"
+      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html"
     },
     {
       "check": "CloudFormation StackSets organization service enabled",
@@ -378,7 +378,7 @@
       "required": false,
       "weight": 5,
       "loe": 1,
-      "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-enable-trusted-access.html"
+      "remediationLink": "https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html"
     },
     {
       "check": "AWS Backup organization service enabled",
@@ -432,7 +432,7 @@
       "required": true,
       "weight": 6,
       "loe": 3,
-      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/get-started-enable-identity-center.html"
+      "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html"
     },
     {
       "check": "No IAM users in account",

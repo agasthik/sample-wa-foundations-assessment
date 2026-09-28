@@ -71,7 +71,7 @@ def check_minimum_accounts():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-ous-and-accounts.html",
         }
     except Exception as e:
         return {
@@ -81,7 +81,7 @@ def check_minimum_accounts():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-accounts.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/recommended-ous-and-accounts.html",
             "error": str(e),
         }
 
@@ -137,7 +137,7 @@ def check_audit_account():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html",
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/security-tooling.html",
         }
     except Exception as e:
         return {
@@ -147,7 +147,7 @@ def check_audit_account():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/audit.html",
+            "remediationLink": "https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/security-tooling.html",
             "error": str(e),
         }
 
@@ -311,7 +311,7 @@ def check_security_ou():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#security-ou",
         }
     except Exception as e:
         return {
@@ -321,7 +321,7 @@ def check_security_ou():
             "required": True,
             "weight": 6,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/security-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#security-ou",
             "error": str(e),
         }
 
@@ -338,7 +338,7 @@ def check_workloads_ou():
             "required": False,
             "weight": 5,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/application-ous.html#workloads-ou",
         }
     except Exception as e:
         return {
@@ -348,7 +348,7 @@ def check_workloads_ou():
             "required": False,
             "weight": 5,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/workloads-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/application-ous.html#workloads-ou",
             "error": str(e),
         }
 
@@ -365,7 +365,7 @@ def check_infrastructure_ou():
             "required": False,
             "weight": 5,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#infrastructure-ou",
         }
     except Exception as e:
         return {
@@ -375,7 +375,7 @@ def check_infrastructure_ou():
             "required": False,
             "weight": 5,
             "loe": 2,
-            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/infrastructure-ou.html",
+            "remediationLink": "https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/foundational-ous.html#infrastructure-ou",
             "error": str(e),
         }
 

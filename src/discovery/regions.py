@@ -9,7 +9,6 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 
-
 # Fallbacks are used only when DescribeRegions is unavailable.
 DEFAULT_REGIONS = [
     "us-east-1",

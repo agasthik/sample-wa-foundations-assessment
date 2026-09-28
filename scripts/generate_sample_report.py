@@ -13,18 +13,34 @@ How it stays faithful (no hand-written report content):
   *management* account with a realistic, mixed posture — most foundations in
   place, a few gaps, and one permission error — so the sample exercises the full
   report: complete/incomplete/error states, the "next steps" list, the five-level
-  maturity ladder and generated scoring criteria, and a partial capability radar
+  maturity ladder and generated scoring criteria, and partial capability coverage
   (rather than an unrealistic all-green Level 5).
 - All identifiers are obvious, non-real placeholders (AWS documentation-style
   account IDs and example names), so the committed sample contains no real data.
+
+The HTML sample uses the Cloudscape Design System report UI. Its prebuilt
+bundle in ``src/report/assets/`` is inlined by the production renderer, so
+after changing ``report-ui/`` rebuild it first (``npm run build`` in
+``report-ui/``). After generating, the script verifies that the HTML, CSV, and
+JSON agree and that the HTML embeds the current bundle and report data.
 
 Regenerate with:  python -m scripts.generate_sample_report
 Output:           sample-reports/{wafa-report.html,wafa-checks.csv,wafa-raw.json}
 """
 
+import csv
+import io
+import json
 import os
 import sys
 from unittest.mock import MagicMock, patch
+
+from src.report.csv_export import generate_csv
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS_DIR = os.path.join(REPO_ROOT, "src", "report", "assets")
+UI_ASSETS = ("report-ui.js", "report-ui.css")
+REPORT_DATA_MARKER = '<script type="application/json" id="wafa-report-data">'
 
 # Placeholder identifiers — deliberately fake (AWS "documentation" account IDs).
 MGMT_ACCOUNT_ID = "111111111111"
@@ -219,10 +235,72 @@ def _sample_management_account_client_factory():
     return client_factory
 
 
+def _require_ui_assets():
+    """Fail early with a clear message if the Cloudscape bundle is missing."""
+    missing = [
+        name for name in UI_ASSETS if not os.path.isfile(os.path.join(ASSETS_DIR, name))
+    ]
+    if missing:
+        sys.exit(
+            f"Missing report UI assets in {ASSETS_DIR}: {', '.join(missing)}. "
+            "Run 'npm ci && npm run build' in report-ui/ first."
+        )
+
+
+def _read(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def _verify_outputs(out_dir):
+    """Check the generated sample is complete, consistent, and self-contained."""
+    html = _read(os.path.join(out_dir, "wafa-report.html"))
+    raw = json.loads(_read(os.path.join(out_dir, "wafa-raw.json")))
+    with open(os.path.join(out_dir, "wafa-checks.csv"), encoding="utf-8") as f:
+        csv_rows = list(csv.reader(f))
+    expected_csv_rows = list(csv.reader(io.StringIO(generate_csv(raw["checks"]))))
+
+    problems = []
+    if '<div id="wafa-report-root"></div>' not in html:
+        problems.append("HTML is missing the Cloudscape report root element")
+    for name in UI_ASSETS:
+        if _read(os.path.join(ASSETS_DIR, name)).rstrip("\n") not in html:
+            problems.append(f"HTML does not inline the current {name}")
+    if REPORT_DATA_MARKER not in html:
+        problems.append("HTML is missing the embedded report data")
+    else:
+        payload = html.split(REPORT_DATA_MARKER, 1)[1].split("</script>", 1)[0]
+        data = json.loads(payload)
+        if data["checks"] != raw["checks"]:
+            problems.append("HTML report data checks differ from wafa-raw.json")
+        if data["maturity"] != raw["maturity"]:
+            problems.append("HTML report data maturity differs from wafa-raw.json")
+        statuses = {check["status"] for check in data["checks"]}
+        if not {"complete", "incomplete", "error"} <= statuses:
+            problems.append("sample does not exercise complete, incomplete, and error")
+
+    levels = raw["maturity"].get("scoring_model", {}).get("levels", [])
+    if len(levels) != 5:
+        problems.append("wafa-raw.json does not include a five-level scoring_model")
+    if csv_rows != expected_csv_rows:
+        problems.append("wafa-checks.csv data differs from wafa-raw.json checks")
+    for name in ("wafa-report.html", "wafa-raw.json"):
+        text = _read(os.path.join(out_dir, name))
+        if any(line != line.rstrip() for line in text.splitlines()):
+            problems.append(f"{name} contains trailing whitespace")
+
+    if problems:
+        sys.exit("Sample report verification failed:\n- " + "\n- ".join(problems))
+    print(
+        f"Verified sample: {len(raw['checks'])} checks, maturity level "
+        f"{raw['maturity']['level']}, Cloudscape report UI inlined."
+    )
+
+
 def main():
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = os.path.join(repo_root, "sample-reports")
+    out_dir = os.path.join(REPO_ROOT, "sample-reports")
     os.makedirs(out_dir, exist_ok=True)
+    _require_ui_assets()
 
     factory = _sample_management_account_client_factory()
 
@@ -254,6 +332,7 @@ def main():
         finally:
             sys.argv = old_argv
 
+    _verify_outputs(out_dir)
     print(f"\nSample reports written to: {out_dir}")
 
 

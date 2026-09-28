@@ -110,19 +110,37 @@ echo "  Done."
 
 # 4. Deploy CloudFormation stack
 echo "[4/5] Deploying CloudFormation stack '$STACK_NAME'..."
-PARAMS="SourceBucket=$SOURCE_BUCKET SourceKey=$SOURCE_KEY"
+PARAMS="SourceBucket=$SOURCE_BUCKET SourceKey=$SOURCE_KEY AutoStartBuild=false"
 if [ -n "$EMAIL" ]; then
     PARAMS="$PARAMS EmailAddress=$EMAIL"
 fi
 
+PROJECT_NAME="$STACK_NAME"
+
+# --no-fail-on-empty-changeset: redeploying an unchanged template is expected
+# (for example, to pick up a new source package) and must not stop the script.
 aws cloudformation deploy \
     --template-file "$SCRIPT_DIR/deployment/wafa-stack.yaml" \
     --stack-name "$STACK_NAME" \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides $PARAMS \
+    --no-fail-on-empty-changeset \
     $AWS_OPTS
 
 echo "  Stack deployed successfully."
+
+# AutoStartBuild is disabled above so this script owns the build invocation and
+# can wait on the exact ID returned by StartBuild. This remains correct if an
+# unrelated manual or scheduled build starts during the deployment.
+echo "  Starting CodeBuild project '$PROJECT_NAME'..."
+BUILD_ID=$(aws codebuild start-build \
+    --project-name "$PROJECT_NAME" \
+    --query 'build.id' --output text $AWS_OPTS)
+if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "None" ]; then
+    echo "  ERROR: CodeBuild did not return a build ID."
+    exit 1
+fi
+echo "  Build: $BUILD_ID"
 
 # 5. Show results
 echo "[5/5] Getting results..."
@@ -133,41 +151,29 @@ RESULTS_BUCKET=$(aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs[?OutputKey==`ResultsBucket`].OutputValue' \
     --output text $AWS_OPTS)
 
-# Wait for build to complete (up to 3 minutes)
-PROJECT_NAME="$STACK_NAME"
+# Wait for this deployment's build to complete (up to 3 minutes)
 echo "  Waiting for CodeBuild to complete..."
 BUILD_SUCCEEDED="false"
-BUILD_ID=""
 for i in $(seq 1 18); do
-    BUILD_ID=$(aws codebuild list-builds-for-project \
-        --project-name "$PROJECT_NAME" \
-        --query 'ids[0]' --output text $AWS_OPTS 2>/dev/null || echo "")
+    STATUS=$(aws codebuild batch-get-builds \
+        --ids "$BUILD_ID" \
+        --query 'builds[0].buildStatus' --output text $AWS_OPTS)
 
-    if [ -n "$BUILD_ID" ] && [ "$BUILD_ID" != "None" ]; then
-        STATUS=$(aws codebuild batch-get-builds \
-            --ids "$BUILD_ID" \
-            --query 'builds[0].buildStatus' --output text $AWS_OPTS)
-
-        if [ "$STATUS" = "SUCCEEDED" ]; then
-            echo "  Build SUCCEEDED!"
-            BUILD_SUCCEEDED="true"
-            break
-        elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "FAULT" ] || [ "$STATUS" = "STOPPED" ] || [ "$STATUS" = "TIMED_OUT" ]; then
-            echo "  Build FAILED (status: $STATUS)"
-            echo "  Check logs: aws codebuild batch-get-builds --ids $BUILD_ID $AWS_OPTS"
-            exit 1
-        fi
+    if [ "$STATUS" = "SUCCEEDED" ]; then
+        echo "  Build SUCCEEDED!"
+        BUILD_SUCCEEDED="true"
+        break
+    elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "FAULT" ] || [ "$STATUS" = "STOPPED" ] || [ "$STATUS" = "TIMED_OUT" ]; then
+        echo "  Build FAILED (status: $STATUS)"
+        echo "  Check logs: aws codebuild batch-get-builds --ids $BUILD_ID $AWS_OPTS"
+        exit 1
     fi
     sleep 10
 done
 
 if [ "$BUILD_SUCCEEDED" != "true" ]; then
     echo "  Build did not finish within the 3-minute wait window."
-    if [ -n "$BUILD_ID" ] && [ "$BUILD_ID" != "None" ]; then
-        echo "  Check status: aws codebuild batch-get-builds --ids $BUILD_ID $AWS_OPTS"
-    else
-        echo "  Check status: aws codebuild list-builds-for-project --project-name $PROJECT_NAME $AWS_OPTS"
-    fi
+    echo "  Check status: aws codebuild batch-get-builds --ids $BUILD_ID $AWS_OPTS"
     exit 1
 fi
 

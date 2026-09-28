@@ -1,14 +1,14 @@
 """Unit tests for src/checks/control_tower.py — FR-5: Control Tower Checks."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
 from src.checks.control_tower import (
     check_control_tower_deployed,
-    check_control_tower_not_drifted,
     check_control_tower_latest_version,
+    check_control_tower_not_drifted,
 )
-
 
 # ============================================================================
 # FR-5.1: Control Tower Deployed

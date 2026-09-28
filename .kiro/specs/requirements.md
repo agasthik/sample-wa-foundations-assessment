@@ -22,7 +22,10 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - Lambda defined inline in CloudFormation (ZipFile property), runtime `python3.12`
   - Handler calls `codebuild.start_build(projectName=...)` on the project created in the same stack
   - Lambda IAM role has only `codebuild:StartBuild` permission scoped to the project ARN
-  - On CloudFormation Delete: Lambda is a no-op (returns SUCCESS without action)
+  - For CloudFormation Delete requests, the Lambda is a no-op and returns SUCCESS without taking action
+  - The `AutoStartBuild` parameter defaults to `true` for direct CloudFormation
+    deployments. `deploy.sh` sets it to `false`, starts one build directly, and
+    waits on the exact build ID returned by CodeBuild.
 - FR-1.4: Support manual re-run: customer clicks "Start build" in CodeBuild console
 - FR-1.5: Auto-detect partition from the configured AWS region (`AWS_DEFAULT_REGION`; region discovery also accepts `AWS_REGION`):
   - `us-gov-*` regions → `aws-us-gov` partition, default region `us-gov-west-1`
@@ -259,7 +262,7 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 
 - FR-10.1: Generate an interactive HTML report containing:
   - **Maturity Level Score** (top of report): Level 1-5 with name, progress bar to next level, and specific next steps
-  - **Radar/Spider Chart**: 7-axis chart showing % completion per WA Foundations capability:
+  - **Capability Coverage Chart**: Cloudscape horizontal bar chart showing % completion per WA Foundations capability (7 axes):
     - Axis 1: Multi-Account Environment (FND01) — checks FR-3.1-3.12
     - Axis 2: Identity & Access Management (FND02) — checks FR-3.6, FR-3.9, FR-4.5, FR-4.7, FR-6.1, FR-6.2
     - Axis 3: Central Observability (FND03) — checks FR-4.1, FR-7.1, FR-7.2 (limited in Phase 1)
@@ -269,13 +272,13 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
     - Axis 7: Networking & Connectivity (FND07) — no Phase 1 checks (shows 0%, gap highlighted)
     - Score per axis = (passing checks in that capability / total checks for that capability) × 100
     - Note: A single check CAN contribute to multiple axes (e.g., CloudTrail is both Observability and Security) — axes are independent dimensions, not a partition
-    - Implementation: inline SVG embedded in the HTML; the report has no external CDN dependency
+    - Implementation: Cloudscape Design System components (React), built from `report-ui/` into `src/report/assets/` and inlined in the HTML with the assessment data as JSON; the report has no external CDN or network dependency
     - Reference pattern: https://github.com/aws-samples/sample-aws-observability-assessment
   - Executive summary: total checks, passed, failed, completion percentage
   - Table with columns: Check Name, Description, Status, Required (yes/no), Level of Effort, Remediation Link
-  - Filter controls: show all / complete only / incomplete only
+  - Filter controls: show all / complete only / incomplete only / error only, plus text filtering
   - Console table print (same as original CFAT): columns `check`, `status`, `required`, `loe`
-  - Light/dark mode toggle (CSS only, no JS framework required)
+  - Light/dark mode toggle in the top navigation (Cloudscape `applyMode`)
 - FR-10.2: Generate CSV file with ALL check results (same columns as HTML table) — filename: `wafa-checks.csv`
 - FR-10.3: Generate raw JSON file with full assessment data — filename: `wafa-raw.json`
 - FR-10.4: Upload all files to S3 bucket: `s3://{bucket}/{account_id}/wafa-report.html`, `wafa-checks.csv`, `wafa-raw.json`
@@ -339,7 +342,7 @@ Based on the AWS Well-Architected Foundations maturity model (March 2026). Maps 
   | 2 | Established | AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process. |
   | 3 | Intermediate | OUs reflect security/infrastructure/workload separation. SCPs enforce guardrails. Control Tower automates provisioning. Tags enforced. |
   | 4 | Advanced | Preventive + detective controls together. Progressive controls across environments. Tag compliance monitored. Defined ownership processes. |
-  | 5 | Expert | Controls, baselines, provisioning fully codified and continuously validated. Ephemeral environments on demand. Accurate metadata everywhere. |
+  | 5 | Expert | Controls, baselines, and provisioning are fully codified and continuously validated. Ephemeral environments on demand. Accurate metadata everywhere. |
 
 ## Non-Functional Requirements
 

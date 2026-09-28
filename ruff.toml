@@ -1,0 +1,6 @@
+[lint.per-file-ignores]
+# Assessment checks and discovery intentionally catch every exception: the
+# check contract turns any API or evaluation failure into a `status: "error"`
+# result (or a documented fallback) so one failure never crashes the run.
+"src/checks/**" = ["BLE001"]
+"src/discovery/**" = ["BLE001"]

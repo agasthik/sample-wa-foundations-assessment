@@ -9,6 +9,7 @@ Also detects partition (aws, aws-us-gov, aws-cn) from region.
 """
 
 import os
+
 import boto3
 from botocore.exceptions import ClientError
 

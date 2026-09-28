@@ -36,8 +36,8 @@ MATURITY_LEVELS = {
     5: {
         "name": "Expert",
         "description": (
-            "Every check returned by the current Well Architected Foundations "
-            "Assessments report is complete."
+            "Every check returned by the current Well-Architected Foundations "
+            "Assessment report is complete."
         ),
     },
 }
@@ -295,7 +295,7 @@ def _build_scoring_model(checks, current_level, next_level):
 
     return {
         "rule": (
-            "The Well Architected Foundations Assessments model assigns the "
+            "The Well-Architected Foundations Assessment model assigns the "
             "highest maturity level whose required criteria are all complete."
         ),
         "weight_note": (

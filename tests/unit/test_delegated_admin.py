@@ -1,6 +1,7 @@
 """Unit tests for src/checks/delegated_admin.py — FR-9: Delegated Administrator Checks."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
 from src.checks.delegated_admin import get_delegated_administrators

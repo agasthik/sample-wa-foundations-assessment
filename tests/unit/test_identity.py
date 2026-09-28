@@ -1,10 +1,10 @@
 """Unit tests for src/checks/identity.py — FR-6: Identity Checks."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from botocore.exceptions import ClientError
 
 from src.checks.identity import check_iam_identity_center, check_no_iam_users, run_all
-
 
 # ============================================================================
 # FR-6.1: IAM Identity Center Configured
