@@ -342,3 +342,39 @@ class TestGenerateCsv:
             SystemExit, match="wafa-checks.csv data differs from wafa-raw.json checks"
         ):
             _verify_outputs(tmp_path)
+
+    def test_sample_verifier_rejects_html_json_metadata_drift(self, tmp_path):
+        """Account info and delegated admins must match between HTML and JSON."""
+        checks = _make_checks()
+        maturity = calculate_maturity_level(checks)
+        account_info = {"account_id": "111111111111", "account_type": "management"}
+        admins = [{"accountId": "333333333333", "accountName": "Audit", "services": []}]
+        raw = {
+            "account_info": account_info,
+            "maturity": maturity,
+            "checks": checks,
+            "delegated_administrators": admins,
+            "delegated_administrators_error": None,
+        }
+        (tmp_path / "wafa-checks.csv").write_text(
+            generate_csv(checks), encoding="utf-8"
+        )
+        raw_path = tmp_path / "wafa-raw.json"
+        raw_path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+        (tmp_path / "wafa-report.html").write_text(
+            generate_html(checks, maturity, admins, account_info), encoding="utf-8"
+        )
+        _verify_outputs(tmp_path)
+
+        for key, value, html_key in (
+            ("account_info", {"account_id": "999999999999"}, "account_info"),
+            ("delegated_administrators", [], "delegated_admins"),
+            ("delegated_administrators_error", "Denied", "delegated_admins_error"),
+        ):
+            raw_path.write_text(
+                json.dumps({**raw, key: value}, indent=2) + "\n", encoding="utf-8"
+            )
+            with pytest.raises(
+                SystemExit, match=f"HTML report data {html_key} differs"
+            ):
+                _verify_outputs(tmp_path)
