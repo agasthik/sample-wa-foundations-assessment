@@ -4,8 +4,37 @@ Checks AWS Organizations structure: org exists, accounts, OUs, policies.
 Only runs if the current account is the management account.
 """
 
+import re
+
 import boto3
 from botocore.exceptions import ClientError
+
+
+def _normalize_name(name):
+    """Normalize an account or OU name for matching.
+
+    Ignores case, spaces, hyphens, and underscores so that, for example,
+    "Log Archive", "LogArchive", and "log-archive" all match.
+    """
+    return re.sub(r"[\s_-]+", "", name or "").lower()
+
+
+def _is_active(account):
+    """Return True unless the account is suspended, closing, or closed.
+
+    Prefer State (the newer field) and fall back to Status.
+    """
+    state = account.get("State") or account.get("Status") or "ACTIVE"
+    return state.upper() == "ACTIVE"
+
+
+def _list_active_accounts(client):
+    """List organization accounts that are active."""
+    accounts = []
+    paginator = client.get_paginator("list_accounts")
+    for page in paginator.paginate():
+        accounts.extend(a for a in page.get("Accounts", []) if _is_active(a))
+    return accounts
 
 
 def check_org_exists():
@@ -44,7 +73,7 @@ def check_org_exists():
 def check_management_account(account_info):
     """FR-3.2: Verify running from the management account."""
     is_mgmt = account_info.get("is_management_account", False)
-    return {
+    result = {
         "check": "Management account identified",
         "description": "Assessment should be run from the organization management account.",
         "status": "complete" if is_mgmt else "incomplete",
@@ -53,16 +82,17 @@ def check_management_account(account_info):
         "loe": 1,
         "remediationLink": "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts.html",
     }
+    if account_info.get("detection_error"):
+        result["status"] = "error"
+        result["error"] = account_info["detection_error"]
+    return result
 
 
 def check_minimum_accounts():
     """FR-3.3: Verify at least 4 accounts exist in the organization."""
     try:
         client = boto3.client("organizations")
-        accounts = []
-        paginator = client.get_paginator("list_accounts")
-        for page in paginator.paginate():
-            accounts.extend(page.get("Accounts", []))
+        accounts = _list_active_accounts(client)
 
         return {
             "check": "Minimum 4 accounts",
@@ -90,12 +120,9 @@ def check_log_archive_account():
     """FR-3.4: Verify a Log Archive account exists."""
     try:
         client = boto3.client("organizations")
-        accounts = []
-        paginator = client.get_paginator("list_accounts")
-        for page in paginator.paginate():
-            accounts.extend(page.get("Accounts", []))
+        accounts = _list_active_accounts(client)
 
-        found = any(a.get("Name", "").lower() == "log archive" for a in accounts)
+        found = any(_normalize_name(a.get("Name")) == "logarchive" for a in accounts)
         return {
             "check": "Log Archive account exists",
             "description": "A dedicated Log Archive account should exist for centralized logging.",
@@ -122,13 +149,11 @@ def check_audit_account():
     """FR-3.5: Verify an Audit/Security Tooling account exists."""
     try:
         client = boto3.client("organizations")
-        accounts = []
-        paginator = client.get_paginator("list_accounts")
-        for page in paginator.paginate():
-            accounts.extend(page.get("Accounts", []))
+        accounts = _list_active_accounts(client)
 
         found = any(
-            a.get("Name", "").lower() in ("audit", "security tooling") for a in accounts
+            _normalize_name(a.get("Name")) in ("audit", "securitytooling")
+            for a in accounts
         )
         return {
             "check": "Audit account exists",
@@ -303,7 +328,7 @@ def check_security_ou():
     """FR-3.10: Verify a Security OU exists at root level."""
     try:
         ous = _get_top_level_ous()
-        found = any(ou.get("Name", "").lower() == "security" for ou in ous)
+        found = any(_normalize_name(ou.get("Name")) == "security" for ou in ous)
         return {
             "check": "Security OU exists",
             "description": "A Security OU should exist at the root level for security accounts.",
@@ -330,7 +355,7 @@ def check_workloads_ou():
     """FR-3.11: Verify a Workloads OU exists at root level."""
     try:
         ous = _get_top_level_ous()
-        found = any(ou.get("Name", "").lower() == "workloads" for ou in ous)
+        found = any(_normalize_name(ou.get("Name")) == "workloads" for ou in ous)
         return {
             "check": "Workloads OU exists",
             "description": "A Workloads OU should exist for business application accounts.",
@@ -357,7 +382,7 @@ def check_infrastructure_ou():
     """FR-3.12: Verify an Infrastructure OU exists at root level."""
     try:
         ous = _get_top_level_ous()
-        found = any(ou.get("Name", "").lower() == "infrastructure" for ou in ous)
+        found = any(_normalize_name(ou.get("Name")) == "infrastructure" for ou in ous)
         return {
             "check": "Infrastructure OU exists",
             "description": "An Infrastructure OU should exist for shared infrastructure services.",

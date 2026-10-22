@@ -7,6 +7,7 @@ Calls discovery, then runs checks based on account type, generates reports.
 import argparse
 import json
 import os
+import sys
 
 import boto3
 
@@ -20,7 +21,7 @@ from src.checks import (
 from src.checks.delegated_admin import get_delegated_administrators
 from src.checks.maturity import calculate_maturity_level
 from src.discovery.account_type import detect_account_type, detect_partition
-from src.discovery.regions import get_enabled_regions
+from src.discovery.regions import discover_regions
 from src.report.csv_export import generate_csv
 from src.report.html_report import generate_html
 
@@ -120,13 +121,14 @@ def run():
     print(f"Account: {account_info['account_id']} ({account_info['account_type']})")
 
     # 2. Discover regions
-    regions = get_enabled_regions(partition_info["default_region"])
-    print(f"Regions discovered: {len(regions)}")
+    regions, opted_in_regions = discover_regions(partition_info["default_region"])
+    print(f"Regions discovered: {len(regions)} ({len(opted_in_regions)} opted-in)")
     print("-" * 40)
 
     # 3. Run checks based on account type
     checks = []
     delegated_admins = []
+    delegated_admins_error = None
 
     # FR-3.1, FR-3.2: Always run
     checks.append(organization.check_org_exists())
@@ -142,10 +144,16 @@ def run():
         checks.extend(org_services.run_all())
 
         # FR-5: Control Tower
-        checks.extend(control_tower.run_all())
+        checks.extend(control_tower.run_all(opted_in_regions))
 
         # FR-6: Identity (management account runs both checks)
-        checks.extend(identity.run_all(regions, is_management_account=True))
+        checks.extend(
+            identity.run_all(
+                regions,
+                is_management_account=True,
+                default_region=partition_info["default_region"],
+            )
+        )
 
         # FR-7 + FR-8: Per-account resources (all + management-only)
         checks.extend(
@@ -157,12 +165,18 @@ def run():
         )
 
         # FR-9: Delegated administrators (informational)
-        delegated_admins = get_delegated_administrators()
+        delegated_admins, delegated_admins_error = get_delegated_administrators()
 
     else:
         print("Running LIMITED assessment (non-management account)...")
         # FR-2.4: Limited checks for non-management accounts
-        checks.extend(identity.run_all(regions, is_management_account=False))
+        checks.extend(
+            identity.run_all(
+                regions,
+                is_management_account=False,
+                default_region=partition_info["default_region"],
+            )
+        )
         checks.extend(
             account_resources.run_all(
                 regions,
@@ -178,7 +192,13 @@ def run():
     print_summary(checks, maturity)
 
     # 6. Generate reports
-    html_content = generate_html(checks, maturity, delegated_admins, account_info)
+    html_content = generate_html(
+        checks,
+        maturity,
+        delegated_admins,
+        account_info,
+        delegated_admins_error=delegated_admins_error,
+    )
     csv_content = generate_csv(checks)
     raw_json = json.dumps(
         {
@@ -186,6 +206,7 @@ def run():
             "maturity": maturity,
             "checks": checks,
             "delegated_administrators": delegated_admins,
+            "delegated_administrators_error": delegated_admins_error,
         },
         indent=2,
         default=str,
@@ -218,5 +239,18 @@ def run():
     return checks, maturity
 
 
+def exit_code(checks):
+    """Return 1 when every check errored, which usually means missing
+    permissions; partial errors still produce a useful report and return 0."""
+    if checks and all(c.get("status") == "error" for c in checks):
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    run()
+    final_checks, _ = run()
+    if exit_code(final_checks):
+        print(
+            "ERROR: Every check returned an error. Review the assessment permissions."
+        )
+    sys.exit(exit_code(final_checks))

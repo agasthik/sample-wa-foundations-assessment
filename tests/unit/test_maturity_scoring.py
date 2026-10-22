@@ -322,3 +322,36 @@ class TestProgressAndNextChecks:
         # And concretely: the two highest-weight items lead the list.
         assert needed[0] == "Control Tower deployed"  # weight 9
         assert needed[1] == "CloudTrail trail exists"  # weight 8
+
+
+# ============================================================================
+# Limited-mode next steps and Level 5 count
+# ============================================================================
+
+
+class TestLimitedModeNextSteps:
+    def test_unassessed_and_unactionable_checks_are_not_next_steps(self):
+        """A member account is told only about checks it actually ran."""
+        checks = [
+            _make_check("AWS Organization exists", "complete"),
+            _make_check("Management account identified", "incomplete"),
+            _make_check("No IAM users in account", "incomplete"),
+            _make_check("CloudTrail trail exists", "complete"),
+        ]
+        result = calculate_maturity_level(checks)
+
+        assert result["level"] == 1
+        assert result["next_level_checks_needed"] == []
+        level_2 = result["scoring_model"]["levels"][1]
+        statuses = {c["name"]: c["status"] for c in level_2["criteria"]}
+        assert statuses["Minimum 4 accounts"] == "not_assessed"
+
+    def test_level_5_reports_its_single_criterion(self):
+        checks = [
+            _make_check("AWS Organization exists", "complete"),
+            _make_check("No VPCs in account", "incomplete"),
+        ]
+        level_5 = calculate_maturity_level(checks)["scoring_model"]["levels"][4]
+        assert level_5["criteria_count"] == 1
+        assert level_5["complete_count"] == 0
+        assert level_5["criteria"][0]["detail"] == "1 of 2 checks complete"

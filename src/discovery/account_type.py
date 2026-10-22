@@ -4,6 +4,7 @@ Detects whether the current account is:
 - Management account of an AWS Organization
 - Member account of an AWS Organization
 - Standalone account (no organization)
+- Unknown, when DescribeOrganization fails for another reason
 
 Also detects partition (aws, aws-us-gov, aws-cn) from region.
 """
@@ -14,13 +15,27 @@ import boto3
 from botocore.exceptions import ClientError
 
 
+def configured_region():
+    """Return the Region configured for this run.
+
+    Precedence: AWS_DEFAULT_REGION, AWS_REGION, then the active profile's
+    Region (boto3 session), falling back to us-east-1.
+    """
+    return (
+        os.environ.get("AWS_DEFAULT_REGION")
+        or os.environ.get("AWS_REGION")
+        or boto3.session.Session().region_name
+        or "us-east-1"
+    )
+
+
 def detect_partition():
-    """Detect AWS partition from AWS_DEFAULT_REGION environment variable (FR-1.5).
+    """Detect AWS partition from the configured Region (FR-1.5).
 
     Returns:
         dict with keys: partition, default_region
     """
-    region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+    region = configured_region()
 
     if region.startswith("us-gov-"):
         return {"partition": "aws-us-gov", "default_region": "us-gov-west-1"}
@@ -40,7 +55,8 @@ def detect_account_type():
             - is_in_organization: bool - True if account belongs to an org
             - organization_id: str | None - org ID if in an org
             - management_account_id: str | None - management account ID if in org
-            - account_type: str - "management" | "member" | "standalone"
+            - account_type: str - "management" | "member" | "standalone" | "unknown"
+            - detection_error: str - present only when account_type is "unknown"
     """
     sts_client = boto3.client("sts")
     identity = sts_client.get_caller_identity()
@@ -84,6 +100,25 @@ def detect_account_type():
                 "Only limited checks will run."
             )
         else:
-            raise
+            # Without DescribeOrganization (for example, an SCP or role
+            # policy denies it) the account type cannot be determined. Run
+            # the limited assessment instead of stopping without a report.
+            result["account_type"] = "unknown"
+            result["detection_error"] = str(e)
+            print(
+                f"WARNING: Could not determine whether account {current_account_id} "
+                f"belongs to an AWS Organization ({error_code}). "
+                "Only limited checks will run."
+            )
+    except Exception as e:
+        # Non-API failures (for example, endpoint or network errors) leave
+        # the account type undetermined as well; degrade the same way.
+        result["account_type"] = "unknown"
+        result["detection_error"] = str(e)
+        print(
+            f"WARNING: Could not determine whether account {current_account_id} "
+            f"belongs to an AWS Organization ({e}). "
+            "Only limited checks will run."
+        )
 
     return result

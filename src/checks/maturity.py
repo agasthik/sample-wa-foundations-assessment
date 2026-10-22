@@ -307,20 +307,25 @@ def _build_scoring_model(checks, current_level, next_level):
             _level_model(2, level_2_criteria, current_level, next_level),
             _level_model(3, level_3_criteria, current_level, next_level),
             _level_model(4, level_4_criteria, current_level, next_level),
-            _level_model(
-                5,
-                level_5_criteria,
-                current_level,
-                next_level,
-                complete_count=level_5_complete,
-                criteria_count=len(checks),
-            ),
+            _level_model(5, level_5_criteria, current_level, next_level),
         ],
     }
 
 
+# Not actionable from the assessed account: it is complete only when WAFA is
+# run from the management account.
+_NOT_ACTIONABLE = {"Management account identified"}
+
+
 def _build_result(level, next_level, progress, next_checks, checks):
     """Build the maturity scoring result dict."""
+    # Recommend only checks that this run assessed. In limited mode,
+    # management-only checks are not run, so they cannot be next steps.
+    assessed = {c.get("check") for c in checks}
+    next_checks = [
+        name for name in next_checks if name in assessed and name not in _NOT_ACTIONABLE
+    ]
+
     # Sort next_checks by weight (highest first)
     weighted_next = []
     for name in next_checks:

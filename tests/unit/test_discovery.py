@@ -3,10 +3,12 @@
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.discovery.account_type import detect_account_type, detect_partition
-from src.discovery.regions import DEFAULT_REGIONS, get_enabled_regions
+from src.discovery.regions import (
+    DEFAULT_REGIONS,
+    discover_regions,
+    get_enabled_regions,
+)
 
 # ============================================================================
 # FR-2.1 / FR-2.2: Account Type Detection
@@ -34,13 +36,31 @@ class TestDetectPartition:
             assert result["partition"] == "aws-cn"
             assert result["default_region"] == "cn-north-1"
 
-    def test_default_when_no_env_var(self):
+    @patch("src.discovery.account_type.boto3.session.Session")
+    def test_default_when_no_env_var(self, mock_session):
+        mock_session.return_value.region_name = None
         with patch.dict(os.environ, {}, clear=True):
-            # Remove AWS_DEFAULT_REGION if it exists
-            os.environ.pop("AWS_DEFAULT_REGION", None)
             result = detect_partition()
             assert result["partition"] == "aws"
             assert result["default_region"] == "us-east-1"
+
+    @patch("src.discovery.account_type.boto3.session.Session")
+    def test_aws_region_env_var(self, mock_session):
+        """AWS_REGION is honored when AWS_DEFAULT_REGION is unset."""
+        mock_session.return_value.region_name = None
+        with patch.dict(os.environ, {"AWS_REGION": "us-gov-east-1"}, clear=True):
+            result = detect_partition()
+            assert result["partition"] == "aws-us-gov"
+            assert result["default_region"] == "us-gov-west-1"
+
+    @patch("src.discovery.account_type.boto3.session.Session")
+    def test_profile_region_when_no_env_var(self, mock_session):
+        """A Region configured only in the active profile selects the partition."""
+        mock_session.return_value.region_name = "cn-northwest-1"
+        with patch.dict(os.environ, {}, clear=True):
+            result = detect_partition()
+            assert result["partition"] == "aws-cn"
+            assert result["default_region"] == "cn-north-1"
 
 
 class TestDetectAccountType:
@@ -146,8 +166,8 @@ class TestDetectAccountType:
         assert result["account_type"] == "standalone"
 
     @patch("src.discovery.account_type.boto3.client")
-    def test_unexpected_error_propagates(self, mock_boto_client):
-        """Error case: unexpected API error is raised."""
+    def test_unexpected_error_marks_account_type_unknown(self, mock_boto_client):
+        """Error case: an unexpected API error does not stop the assessment."""
         from botocore.exceptions import ClientError
 
         mock_sts = MagicMock()
@@ -168,8 +188,39 @@ class TestDetectAccountType:
 
         mock_boto_client.side_effect = client_factory
 
-        with pytest.raises(ClientError):
-            detect_account_type()
+        result = detect_account_type()
+
+        assert result["account_type"] == "unknown"
+        assert result["is_management_account"] is False
+        assert "AccessDeniedException" in result["detection_error"]
+
+    @patch("src.discovery.account_type.boto3.client")
+    def test_connection_error_marks_account_type_unknown(self, mock_boto_client):
+        """Error case: a non-ClientError failure (endpoint/network) does not crash the run."""
+        from botocore.exceptions import EndpointConnectionError
+
+        mock_sts = MagicMock()
+        mock_sts.get_caller_identity.return_value = {"Account": "444444444444"}
+
+        mock_org = MagicMock()
+        mock_org.describe_organization.side_effect = EndpointConnectionError(
+            endpoint_url="https://organizations.us-east-1.amazonaws.com"
+        )
+
+        def client_factory(service, **kwargs):
+            if service == "sts":
+                return mock_sts
+            elif service == "organizations":
+                return mock_org
+            return MagicMock()
+
+        mock_boto_client.side_effect = client_factory
+
+        result = detect_account_type()
+
+        assert result["account_type"] == "unknown"
+        assert result["is_management_account"] is False
+        assert "detection_error" in result
 
 
 # ============================================================================
@@ -200,8 +251,40 @@ class TestGetEnabledRegions:
 
         assert result == ["ap-southeast-1", "eu-west-1", "us-east-1"]
         mock_ec2.describe_regions.assert_called_once_with(
-            Filters=[{"Name": "opt-in-status", "Values": ["opt-in-not-required"]}]
+            Filters=[
+                {
+                    "Name": "opt-in-status",
+                    "Values": ["opt-in-not-required", "opted-in"],
+                }
+            ]
         )
+
+    @patch("src.discovery.regions.boto3.client")
+    def test_opted_in_regions_included_and_reported(self, mock_boto_client):
+        """Opt-in regions the account enabled are scanned and listed separately."""
+        mock_ec2 = MagicMock()
+        mock_ec2.describe_regions.return_value = {
+            "Regions": [
+                {"RegionName": "us-east-1", "OptInStatus": "opt-in-not-required"},
+                {"RegionName": "eu-south-1", "OptInStatus": "opted-in"},
+                {"RegionName": "af-south-1", "OptInStatus": "opted-in"},
+            ]
+        }
+        mock_boto_client.return_value = mock_ec2
+
+        regions, opted_in = discover_regions()
+
+        assert regions == ["af-south-1", "eu-south-1", "us-east-1"]
+        assert opted_in == ["af-south-1", "eu-south-1"]
+
+    @patch("src.discovery.regions.boto3.client")
+    def test_fallback_reports_no_opted_in_regions(self, mock_boto_client):
+        mock_boto_client.return_value.describe_regions.side_effect = Exception("x")
+
+        regions, opted_in = discover_regions("us-east-1")
+
+        assert regions == DEFAULT_REGIONS
+        assert opted_in == []
 
     @patch("src.discovery.regions.boto3.client")
     def test_fallback_on_api_error(self, mock_boto_client):
@@ -251,3 +334,37 @@ class TestGetEnabledRegions:
 
         assert result == ["cn-north-1", "cn-northwest-1"]
         mock_boto_client.assert_called_once_with("ec2", region_name="cn-north-1")
+
+
+class TestHasServiceEndpoint:
+    @patch("src.discovery.regions.boto3.session.Session")
+    def test_listed_region_has_endpoint(self, mock_session):
+        from src.discovery.regions import has_service_endpoint
+
+        session = mock_session.return_value
+        session.get_partition_for_region.return_value = "aws-us-gov"
+        session.get_available_regions.return_value = ["us-gov-west-1"]
+
+        assert has_service_endpoint("sso-admin", "us-gov-west-1") is True
+        session.get_available_regions.assert_called_once_with(
+            "sso-admin", partition_name="aws-us-gov"
+        )
+
+    @patch("src.discovery.regions.boto3.session.Session")
+    def test_unlisted_region_has_no_endpoint(self, mock_session):
+        from src.discovery.regions import has_service_endpoint
+
+        session = mock_session.return_value
+        session.get_partition_for_region.return_value = "aws"
+        session.get_available_regions.return_value = ["us-east-1"]
+
+        assert has_service_endpoint("sso-admin", "ap-southeast-7") is False
+
+    @patch("src.discovery.regions.boto3.session.Session")
+    def test_unreadable_endpoint_data_assumes_endpoint(self, mock_session):
+        from src.discovery.regions import has_service_endpoint
+
+        mock_session.return_value.get_partition_for_region.side_effect = RuntimeError(
+            "unknown region"
+        )
+        assert has_service_endpoint("sso-admin", "us-east-1") is True

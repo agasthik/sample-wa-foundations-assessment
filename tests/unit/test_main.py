@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.main import print_summary, run, upload_to_s3
+from src.main import exit_code, print_summary, run, upload_to_s3
 
 
 def test_deployment_names_use_wa_foundations_prefix():
@@ -288,7 +288,7 @@ def _mock_management_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": []}
+            mock.get_paginator.return_value.paginate.return_value = [{"Users": []}]
 
         elif service == "ec2":
             mock.describe_regions.return_value = {
@@ -301,6 +301,7 @@ def _mock_management_account_boto3():
             mock.describe_vpcs.return_value = {"Vpcs": []}
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [
                     {
@@ -370,9 +371,12 @@ def _mock_member_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": [{"UserName": "legacy-user"}]}
+            mock.get_paginator.return_value.paginate.return_value = [
+                {"Users": [{"UserName": "legacy-user"}]}
+            ]
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [{"Name": "trail", "IsOrganizationTrail": False}]
             }
@@ -432,9 +436,12 @@ def _mock_standalone_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": [{"UserName": "legacy-user"}]}
+            mock.get_paginator.return_value.paginate.return_value = [
+                {"Users": [{"UserName": "legacy-user"}]}
+            ]
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [{"Name": "trail", "IsOrganizationTrail": False}]
             }
@@ -811,6 +818,61 @@ class TestRunStandaloneAccount:
         assert maturity["level"] == 1
 
 
+class TestRunUnknownAccountType:
+    """DescribeOrganization denied: run limited checks instead of crashing."""
+
+    @patch("src.main.parse_args")
+    @patch("src.checks.organization.boto3.client")
+    @patch("src.checks.account_resources.boto3.client")
+    @patch("src.checks.identity.boto3.client")
+    @patch("src.discovery.regions.boto3.client")
+    @patch("src.discovery.account_type.boto3.client")
+    def test_access_denied_runs_limited_assessment(
+        self,
+        mock_acct_client,
+        mock_regions_client,
+        mock_id_client,
+        mock_res_client,
+        mock_org_client,
+        mock_parse_args,
+        tmp_path,
+    ):
+        from botocore.exceptions import ClientError
+
+        mock_parse_args.return_value = MagicMock(output=str(tmp_path))
+        standalone = _mock_standalone_account_boto3()
+
+        def factory(service, **kwargs):
+            if service == "organizations":
+                mock = MagicMock()
+                mock.describe_organization.side_effect = ClientError(
+                    {"Error": {"Code": "AccessDeniedException", "Message": "Denied"}},
+                    "DescribeOrganization",
+                )
+                return mock
+            return standalone(service, **kwargs)
+
+        for mock_client in (
+            mock_acct_client,
+            mock_regions_client,
+            mock_id_client,
+            mock_res_client,
+            mock_org_client,
+        ):
+            mock_client.side_effect = factory
+
+        checks, _ = run()
+
+        assert len(checks) == 9
+        statuses = {c["check"]: c["status"] for c in checks}
+        assert statuses["AWS Organization exists"] == "error"
+        assert statuses["Management account identified"] == "error"
+        raw = json.loads((tmp_path / "wafa-raw.json").read_text())
+        assert raw["account_info"]["account_type"] == "unknown"
+        assert "AccessDeniedException" in raw["account_info"]["detection_error"]
+        assert raw["delegated_administrators_error"] is None
+
+
 # ============================================================================
 # S3 upload path
 # ============================================================================
@@ -938,3 +1000,10 @@ class TestPrintSummary:
 
         assert "Expert" in captured.out
         assert "Progress toward" not in captured.out
+
+
+def test_exit_code_fails_only_when_every_check_errors():
+    assert exit_code([{"status": "error"}, {"status": "error"}]) == 1
+    assert exit_code([{"status": "error"}, {"status": "incomplete"}]) == 0
+    assert exit_code([{"status": "complete"}]) == 0
+    assert exit_code([]) == 0
