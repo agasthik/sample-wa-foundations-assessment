@@ -43,7 +43,7 @@ const LEVEL_STATE = {
   achieved: { type: "success", label: "Achieved" },
   current: { type: "success", label: "Current level" },
   next: { type: "in-progress", label: "Next target" },
-  later: { type: "pending", label: "Later level" },
+  locked: { type: "pending", label: "Later level" },
 };
 
 const SUN_ICON = (
@@ -118,7 +118,10 @@ function sectionsFor(data) {
     { id: "capabilities", text: "Capability Coverage" },
     { id: "checks", text: "Check Results" },
   ];
-  if (data.delegated_admins.length || data.delegated_admins_error) {
+  if (
+    data.delegated_administrators.length ||
+    data.delegated_administrators_error
+  ) {
     sections.push({ id: "delegated-admins", text: "Delegated Administrators" });
   }
   if (data.maturity.scoring_model) {
@@ -258,7 +261,7 @@ function MaturityProgress({ maturity }) {
             orientation={isNarrow ? "vertical" : "horizontal"}
             ariaLabel="Maturity level progression"
             steps={levels.map((level) => {
-              const state = LEVEL_STATE[level.state] || LEVEL_STATE.later;
+              const state = LEVEL_STATE[level.state] || LEVEL_STATE.locked;
               return {
                 status: state.type,
                 statusIconAriaLabel: state.label,
@@ -705,11 +708,12 @@ export default function App({ data }) {
               <Section id="checks">
                 <CheckResults checks={data.checks} summary={data.summary} />
               </Section>
-              {(data.delegated_admins.length > 0 || data.delegated_admins_error) && (
+              {(data.delegated_administrators.length > 0 ||
+                data.delegated_administrators_error) && (
                 <Section id="delegated-admins">
                   <DelegatedAdmins
-                    admins={data.delegated_admins}
-                    error={data.delegated_admins_error}
+                    admins={data.delegated_administrators}
+                    error={data.delegated_administrators_error}
                   />
                 </Section>
               )}

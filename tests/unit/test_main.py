@@ -553,6 +553,52 @@ class TestRunManagementAccount:
         assert raw["account_info"]["account_id"] == "111111111111"
 
     @patch("src.main.parse_args")
+    @patch("src.main.detect_partition")
+    @patch("boto3.client")
+    def test_opted_in_region_reaches_control_tower(
+        self, mock_client, mock_partition, mock_parse_args, tmp_path
+    ):
+        """A landing zone in an opted-in region is found by the full run."""
+        mock_parse_args.return_value = MagicMock(output=str(tmp_path))
+        mock_partition.return_value = {
+            "partition": "aws",
+            "default_region": "us-east-1",
+        }
+        base_factory = _mock_management_account_boto3()
+
+        def client_factory(service, **kwargs):
+            client = base_factory(service, **kwargs)
+            if service == "ec2":
+                client.describe_regions.return_value = {
+                    "Regions": [
+                        {
+                            "RegionName": "us-east-1",
+                            "OptInStatus": "opt-in-not-required",
+                        },
+                        {"RegionName": "eu-south-1", "OptInStatus": "opted-in"},
+                    ]
+                }
+            elif service == "controltower":
+                landing_zones = (
+                    [{"arn": "arn:aws:controltower:eu-south-1:111:landingzone/example"}]
+                    if kwargs.get("region_name") == "eu-south-1"
+                    else []
+                )
+                client.list_landing_zones.return_value = {"landingZones": landing_zones}
+            return client
+
+        mock_client.side_effect = client_factory
+
+        checks, _ = run()
+
+        control_tower = next(
+            c for c in checks if c["check"] == "Control Tower deployed"
+        )
+        assert control_tower["status"] == "complete"
+        mock_client.assert_any_call("controltower")
+        mock_client.assert_any_call("controltower", region_name="eu-south-1")
+
+    @patch("src.main.parse_args")
     @patch("src.checks.account_resources.boto3.client")
     @patch("src.checks.identity.boto3.client")
     @patch("src.checks.control_tower.boto3.client")

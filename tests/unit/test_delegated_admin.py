@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 from src.checks.delegated_admin import get_delegated_administrators
 
@@ -123,3 +123,49 @@ class TestGetDelegatedAdministrators:
         assert error is None
         assert result[0]["services"] == []
         assert "AccessDeniedException" in result[0]["servicesError"]
+
+    @patch("src.checks.delegated_admin.boto3.client")
+    def test_connection_error_keeps_services_and_later_admins(self, mock_client):
+        da_paginator = MagicMock()
+        da_paginator.paginate.return_value = [
+            {
+                "DelegatedAdministrators": [
+                    {"Id": "222222222222", "Name": "Security"},
+                    {"Id": "333333333333", "Name": "Audit"},
+                ]
+            }
+        ]
+
+        def service_pages(account_id):
+            if account_id == "222222222222":
+                yield {
+                    "DelegatedServices": [
+                        {"ServicePrincipal": "guardduty.amazonaws.com"}
+                    ]
+                }
+                raise EndpointConnectionError(
+                    endpoint_url="https://organizations.us-east-1.amazonaws.com"
+                )
+            yield {
+                "DelegatedServices": [{"ServicePrincipal": "securityhub.amazonaws.com"}]
+            }
+
+        svc_paginator = MagicMock()
+        svc_paginator.paginate.side_effect = lambda AccountId: service_pages(AccountId)
+        mock_org = MagicMock()
+        mock_org.get_paginator.side_effect = lambda name: (
+            da_paginator if name == "list_delegated_administrators" else svc_paginator
+        )
+        mock_client.return_value = mock_org
+
+        result, error = get_delegated_administrators()
+
+        assert error is None
+        assert [admin["accountId"] for admin in result] == [
+            "222222222222",
+            "333333333333",
+        ]
+        assert result[0]["services"] == ["guardduty.amazonaws.com"]
+        assert "Could not connect to the endpoint URL" in result[0]["servicesError"]
+        assert result[1]["services"] == ["securityhub.amazonaws.com"]
+        assert "servicesError" not in result[1]

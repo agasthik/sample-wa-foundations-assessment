@@ -65,12 +65,22 @@ function reportData(overrides = {}) {
             complete_count: 0,
             criteria_count: 3,
           },
+          {
+            level: 4,
+            name: "Advanced",
+            description: "Advanced.",
+            state: "locked",
+            criteria: [],
+            complete_count: 0,
+            criteria_count: 0,
+          },
         ],
       },
     },
-    delegated_admins: [
+    delegated_administrators: [
       { accountId: "222222222222", accountName: "Security", services: ["guardduty.amazonaws.com"] },
     ],
+    delegated_administrators_error: null,
     account_info: {
       account_id: "111111111111",
       account_type: "management",
@@ -125,6 +135,7 @@ describe("report UI", () => {
     const steps = wrapper.findSteps().getElement().textContent;
     expect(steps).toContain("Current level");
     expect(steps).toContain("Next target");
+    expect(steps).toContain("Later level");
     expect(steps).toContain("1/1 criteria");
     expect(steps).toContain("Baseline");
   });
@@ -182,7 +193,7 @@ describe("report UI", () => {
   });
 
   it("omits the delegated administrators section when empty", () => {
-    const { container, wrapper } = renderReport({ delegated_admins: [] });
+    const { container, wrapper } = renderReport({ delegated_administrators: [] });
     expect(container.querySelector("#delegated-admins")).toBeNull();
     expect(wrapper.findSideNavigation().findLinkByHref("#delegated-admins")).toBeNull();
   });
@@ -221,7 +232,7 @@ describe("report UI", () => {
 
   it("shows delegated administrator errors", () => {
     const { container } = renderReport({
-      delegated_admins: [
+      delegated_administrators: [
         {
           accountId: "222222222222",
           accountName: "Audit",
@@ -229,7 +240,7 @@ describe("report UI", () => {
           servicesError: "ThrottlingException",
         },
       ],
-      delegated_admins_error: "AccessDeniedException",
+      delegated_administrators_error: "AccessDeniedException",
     });
     const section = container.querySelector("#delegated-admins").textContent;
     expect(section).toContain("could not be fully listed");
@@ -239,8 +250,8 @@ describe("report UI", () => {
 
   it("shows the delegated administrators section when listing failed", () => {
     const { container } = renderReport({
-      delegated_admins: [],
-      delegated_admins_error: "AccessDeniedException",
+      delegated_administrators: [],
+      delegated_administrators_error: "AccessDeniedException",
     });
     expect(container.querySelector("#delegated-admins")).not.toBeNull();
   });

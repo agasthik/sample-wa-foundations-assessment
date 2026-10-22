@@ -8,6 +8,7 @@ from src.checks.control_tower import (
     check_control_tower_deployed,
     check_control_tower_latest_version,
     check_control_tower_not_drifted,
+    run_all,
 )
 
 # ============================================================================
@@ -87,9 +88,9 @@ class TestCheckControlTowerNotDrifted:
     def test_get_landing_zone_uses_home_region_from_arn(self, mock_client):
         """GetLandingZone must be called in the landing zone's home region.
 
-        The home region is parsed from the ARN returned by ListLandingZones,
-        which works from any region. Regression test for false errors when
-        the assessment runs outside the Control Tower home region.
+        The home region is parsed from the ARN returned by ListLandingZones.
+        The check uses that region for GetLandingZone instead of reusing
+        the listing client.
         """
         lz_arn = "arn:aws:controltower:us-west-2:111:landingzone/abc"
         mock_default = MagicMock()
@@ -345,6 +346,84 @@ class TestOptInHomeRegion:
         result = check_control_tower_deployed(["ap-east-1", "eu-south-1"])
         assert result["status"] == "complete"
         home.list_landing_zones.assert_called_once()
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_default_region_error_does_not_hide_opted_in_landing_zone(
+        self, mock_client
+    ):
+        default = MagicMock()
+        default.list_landing_zones.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+            "ListLandingZones",
+        )
+        home = MagicMock()
+        home.list_landing_zones.return_value = {
+            "landingZones": [{"arn": self.OPT_IN_ARN}]
+        }
+        home.get_landing_zone.return_value = {
+            "landingZone": {
+                "driftStatus": {"status": "IN_SYNC"},
+                "version": "4.0",
+                "latestAvailableVersion": "4.0",
+            }
+        }
+        mock_client.side_effect = self._factory({None: default, "eu-south-1": home})
+
+        results = run_all(["eu-south-1"])
+
+        assert [result["status"] for result in results] == [
+            "complete",
+            "complete",
+            "complete",
+        ]
+        assert default.list_landing_zones.call_count == 3
+        assert home.list_landing_zones.call_count == 3
+        assert home.get_landing_zone.call_count == 2
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_default_region_error_without_landing_zone_elsewhere_is_error(
+        self, mock_client
+    ):
+        default = MagicMock()
+        default.list_landing_zones.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+            "ListLandingZones",
+        )
+        empty = MagicMock()
+        empty.list_landing_zones.return_value = {"landingZones": []}
+        mock_client.side_effect = self._factory({None: default, "eu-south-1": empty})
+
+        results = run_all(["eu-south-1"])
+
+        assert [result["status"] for result in results] == [
+            "error",
+            "error",
+            "error",
+        ]
+        assert all("ThrottlingException" in result["error"] for result in results)
+        assert empty.list_landing_zones.call_count == 3
+
+    @patch("src.checks.control_tower.has_service_endpoint", return_value=False)
+    @patch("src.checks.control_tower.boto3.client")
+    def test_default_region_connection_failure_is_not_ignored(
+        self, mock_client, mock_endpoint
+    ):
+        from botocore.exceptions import EndpointConnectionError
+
+        default = MagicMock()
+        default.list_landing_zones.side_effect = EndpointConnectionError(
+            endpoint_url="https://controltower.us-east-1.amazonaws.com"
+        )
+        empty = MagicMock()
+        empty.list_landing_zones.return_value = {"landingZones": []}
+        mock_client.side_effect = self._factory({None: default, "eu-south-1": empty})
+
+        result = check_control_tower_deployed(["eu-south-1"])
+
+        assert result["status"] == "error"
+        assert "Could not connect to the endpoint URL" in result["error"]
+        empty.list_landing_zones.assert_called_once()
+        mock_endpoint.assert_not_called()
 
     @patch("src.checks.control_tower.boto3.client")
     def test_region_error_with_no_landing_zone_elsewhere_is_error(self, mock_client):

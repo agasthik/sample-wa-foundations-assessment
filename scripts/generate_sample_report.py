@@ -276,16 +276,13 @@ def _verify_outputs(out_dir):
             problems.append("HTML report data checks differ from wafa-raw.json")
         if data["maturity"] != raw["maturity"]:
             problems.append("HTML report data maturity differs from wafa-raw.json")
-        # The HTML payload and raw JSON name some fields differently.
-        for html_key, raw_key, default in (
-            ("account_info", "account_info", {}),
-            ("delegated_admins", "delegated_administrators", []),
-            ("delegated_admins_error", "delegated_administrators_error", None),
+        for key in (
+            "account_info",
+            "delegated_administrators",
+            "delegated_administrators_error",
         ):
-            if data.get(html_key, default) != raw.get(raw_key, default):
-                problems.append(
-                    f"HTML report data {html_key} differs from wafa-raw.json"
-                )
+            if key not in data or key not in raw or data[key] != raw[key]:
+                problems.append(f"HTML report data {key} differs from wafa-raw.json")
         statuses = {check["status"] for check in data["checks"]}
         if not {"complete", "incomplete", "error"} <= statuses:
             problems.append("sample does not exercise complete, incomplete, and error")
