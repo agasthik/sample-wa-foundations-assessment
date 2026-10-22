@@ -219,7 +219,7 @@ def _has_vpcs(client):
 
 
 def check_cloudtrail_exists(regions):
-    """FR-7.1: Verify at least one CloudTrail trail exists."""
+    """FR-7.1: Verify at least one CloudTrail trail is logging."""
     base = {
         "check": "CloudTrail trail exists",
         "description": "At least one CloudTrail trail should be configured and logging.",
@@ -232,7 +232,7 @@ def check_cloudtrail_exists(regions):
 
 
 def check_cloudtrail_org_trail(regions):
-    """FR-7.2: Verify at least one CloudTrail org trail exists."""
+    """FR-7.2: Verify at least one CloudTrail organization trail is logging."""
     base = {
         "check": "CloudTrail organization trail",
         "description": "An organization trail should be configured and logging for centralized audit logging across all accounts.",
@@ -261,7 +261,7 @@ def check_config_delivery_channel(regions):
     """FR-7.4: Verify an AWS Config delivery channel is delivering successfully."""
     base = {
         "check": "AWS Config delivery channel active",
-        "description": "AWS Config delivery channel should be configured for configuration change delivery.",
+        "description": "AWS Config delivery channel should successfully deliver configuration history or snapshots.",
         "required": True,
         "weight": 6,
         "loe": 2,

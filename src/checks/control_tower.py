@@ -16,24 +16,28 @@ def _list_landing_zones(client, opted_in_regions=()):
     ListLandingZones returns a landing zone from any commercial region, but
     a landing zone whose home region is an opt-in region is returned only
     when called in that home region. When the default-region call finds
-    nothing, retry in each opted-in region. Regions that botocore's endpoint
-    data lists without a Control Tower endpoint are skipped. Any other
-    regional failure, including a connection failure, does not stop the
-    search; the first such failure is raised only if no region returns a
-    landing zone, so the check reports an error rather than a false absence.
+    nothing or fails, search each opted-in region. Opted-in regions that
+    botocore's endpoint data lists without a Control Tower endpoint are
+    skipped. Any other regional failure, including a connection failure,
+    does not stop the search; the first such failure is raised only if no
+    region returns a landing zone, so the check reports an error rather
+    than a false absence.
     """
-    landing_zones = client.list_landing_zones().get("landingZones", [])
-    if landing_zones:
-        return landing_zones
     first_error = None
-    for region in opted_in_regions:
+    for region in (None, *opted_in_regions):
         try:
-            regional = boto3.client("controltower", region_name=region)
+            regional = (
+                client
+                if region is None
+                else boto3.client("controltower", region_name=region)
+            )
             landing_zones = regional.list_landing_zones().get("landingZones", [])
         except Exception as e:
-            no_endpoint = isinstance(
-                e, EndpointConnectionError
-            ) and not has_service_endpoint("controltower", region)
+            no_endpoint = (
+                region is not None
+                and isinstance(e, EndpointConnectionError)
+                and not has_service_endpoint("controltower", region)
+            )
             if first_error is None and not no_endpoint:
                 first_error = e
             continue
@@ -47,9 +51,10 @@ def _list_landing_zones(client, opted_in_regions=()):
 def _get_landing_zone_details(client, opted_in_regions=()):
     """Fetch landing zone details, honoring the landing zone's home region.
 
-    ListLandingZones is region-agnostic, but GetLandingZone must be called
-    in the landing zone's home region. The home region is embedded in the
-    ARN returned by ListLandingZones
+    When a landing zone's home region is opt-in, ListLandingZones returns
+    its ARN only from that region. GetLandingZone must be called in the
+    landing zone's home region. The home region is embedded in the ARN
+    returned by ListLandingZones
     (arn:<partition>:controltower:<home-region>:<account>:landingzone/<id>).
 
     Returns:
@@ -195,7 +200,7 @@ def run_all(opted_in_regions=()):
 
     Args:
         opted_in_regions: opt-in regions enabled for the account, searched
-            when the default-region ListLandingZones call finds nothing
+            when the default-region ListLandingZones call finds nothing or fails
     """
     return [
         check_control_tower_deployed(opted_in_regions),

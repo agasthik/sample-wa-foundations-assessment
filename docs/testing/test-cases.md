@@ -62,7 +62,7 @@ regardless of where the CodeBuild job runs.
   Organizations/STS are region-agnostic control-plane APIs; Control Tower
   `GetLandingZone` is re-pointed to the landing zone's home region (parsed from
   its ARN), and `ListLandingZones` is retried in opted-in regions when the
-  default region finds nothing.
+  default-region call finds nothing or fails.
 - **A region that cannot be inspected does not hide a match elsewhere.** If an SCP
   denies one region, a trail or recorder found in another region still reports
   complete. If nothing is found and some region was denied, the check reports
@@ -286,7 +286,9 @@ For each, set up the "good" and "bad" state and confirm status flips correctly.
 - Recorder recording in ≥1 region → complete; none recording → incomplete.
 
 ### E3. Config delivery channel (FR-7.4)
-- Delivery channel `lastStatus == Success` → complete.
+- A channel with `configHistoryDeliveryInfo.lastStatus == SUCCESS` or
+  `configSnapshotDeliveryInfo.lastStatus == SUCCESS` → complete. If history
+  delivery failed but snapshot delivery succeeded, the check is complete.
 
 ### E4. No EC2 instances / No VPCs (FR-7.5 / 7.6, "absence" checks)
 - Zero instances/VPCs across all regions → complete; any present → incomplete.
@@ -315,9 +317,15 @@ For each, set up the "good" and "bad" state and confirm status flips correctly.
 - Create an OU named "Security" → check complete (case-insensitive match).
 
 ### E9. Control Tower (FR-5)
-- With a landing zone: deployed = complete; introduce drift → "not drifted" = incomplete;
-  behind latest version → "latest version" = incomplete. No landing zone → checks incomplete (not error).
-  A missing or unrecognized drift status → "not drifted" = error, never complete.
+
+- With a landing zone: deployed = complete; introduce drift → "not drifted" =
+  incomplete; behind latest version → "latest version" = incomplete. No landing
+  zone after a successful search → checks incomplete (not error). A missing or
+  unrecognized drift status → "not drifted" = error, never complete.
+- In mocked tests, a failed default-region `ListLandingZones` call still
+  searches enabled opt-in regions. A landing zone found there can complete all
+  three checks; if none is found, the checks report `error` instead of treating
+  the failure as confirmed absence.
 
 ### E10. IAM Identity Center (FR-6.1) permission vs. absence
 - SSO configured → complete; not configured anywhere → incomplete;
@@ -383,6 +391,8 @@ Owner: ____
 
 ### G6. Raw JSON schema
 - wafa-raw.json contains `account_info`, `maturity`, `checks[]`, `delegated_administrators[]`.
+  The HTML report data uses the same `delegated_administrators` and
+  `delegated_administrators_error` keys.
   Every check has: check, description, status, required, weight, loe, remediationLink (+ error if error).
 
 ### G7. Special characters don't break the report
@@ -411,6 +421,9 @@ Owner: ____
   why the account type could not be determined.
 - Deny `organizations:ListDelegatedAdministrators`. **Expected:** the Delegated Administrators section
   still appears with a warning; `wafa-raw.json` has `delegated_administrators_error`.
+- If listing one delegated administrator's services fails, **expected:** that
+  administrator retains any services already found and has `servicesError`;
+  later administrators still appear without a list-level error.
 
 ### H3. CodeBuild timeout boundary
 - Very large org / many regions. **Expected:** completes within the 10-min CodeBuild timeout,

@@ -126,8 +126,8 @@ def _build_report_data(
     return {
         "checks": checks,
         "maturity": maturity,
-        "delegated_admins": delegated_admins,
-        "delegated_admins_error": delegated_admins_error,
+        "delegated_administrators": delegated_admins,
+        "delegated_administrators_error": delegated_admins_error,
         "account_info": account_info,
         "axis_scores": [
             {

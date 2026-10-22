@@ -118,7 +118,8 @@ class TestGenerateHtml:
 
         assert data["checks"] == checks
         assert data["maturity"] == maturity
-        assert data["delegated_admins"] == []
+        assert data["delegated_administrators"] == []
+        assert data["delegated_administrators_error"] is None
         assert data["account_info"] == {}
         assert data["summary"] == {
             "total": 3,
@@ -184,7 +185,7 @@ class TestGenerateHtml:
             )
         )
 
-        assert data["delegated_admins"] == admins
+        assert data["delegated_administrators"] == admins
         assert data["account_info"] == account_info
 
     def test_html_escapes_untrusted_check_content(self):
@@ -260,7 +261,7 @@ class TestCalculateAxisScores:
         multi = axes["Multi-Account Environment"]
         assert multi["assessed_count"] == 1
         assert multi["check_count"] == len(CAPABILITY_AXES["Multi-Account Environment"])
-        assert data["delegated_admins_error"] is None
+        assert data["delegated_administrators_error"] is None
 
     def test_partial_scores(self):
         """Partial completion shows proportional score."""
@@ -320,7 +321,13 @@ class TestGenerateCsv:
         """Sample verification compares every CSV field with raw JSON."""
         checks = _make_checks()
         maturity = calculate_maturity_level(checks)
-        raw = {"checks": checks, "maturity": maturity}
+        raw = {
+            "checks": checks,
+            "maturity": maturity,
+            "account_info": {},
+            "delegated_administrators": [],
+            "delegated_administrators_error": None,
+        }
 
         (tmp_path / "wafa-report.html").write_text(
             generate_html(checks, maturity), encoding="utf-8"
@@ -366,15 +373,13 @@ class TestGenerateCsv:
         )
         _verify_outputs(tmp_path)
 
-        for key, value, html_key in (
-            ("account_info", {"account_id": "999999999999"}, "account_info"),
-            ("delegated_administrators", [], "delegated_admins"),
-            ("delegated_administrators_error", "Denied", "delegated_admins_error"),
+        for key, value in (
+            ("account_info", {"account_id": "999999999999"}),
+            ("delegated_administrators", []),
+            ("delegated_administrators_error", "Denied"),
         ):
             raw_path.write_text(
                 json.dumps({**raw, key: value}, indent=2) + "\n", encoding="utf-8"
             )
-            with pytest.raises(
-                SystemExit, match=f"HTML report data {html_key} differs"
-            ):
+            with pytest.raises(SystemExit, match=f"HTML report data {key} differs"):
                 _verify_outputs(tmp_path)

@@ -158,9 +158,16 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 **Prerequisite:** Only run if management account.
 
 - FR-5.1: **Control Tower Deployed**
-  - API: `controltower.listLandingZones()`; if empty, retry in each opted-in region from FR-2.3 (a landing zone homed in an opt-in region is listed only from that region). Opted-in regions that botocore's endpoint data lists without a Control Tower endpoint are skipped; any other regional failure (including a connection failure) does not stop the search, and the check reports "error" only if no region returns a landing zone.
+  - API: `controltower.listLandingZones()`. If the default-region call is
+    empty or fails, search each opted-in region from FR-2.3. A landing zone
+    homed in an opt-in region is listed only from that region. Opted-in
+    regions that botocore's endpoint data lists without a Control Tower
+    endpoint are skipped. Other regional failures, including a connection
+    failure in the default region, do not stop the search.
   - Pass: response `landingZones` array is non-empty
-  - Status: "complete" if found, "incomplete" if empty
+  - Status: "complete" if found, "incomplete" if no landing zone is found and
+    no non-skipped call failed, "error" if no landing zone is found and a
+    non-skipped call failed
   - weight: 6, loe: 6, required: true
 
 - FR-5.2: **Control Tower Not Drifted**
@@ -258,7 +265,14 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - Columns: Account ID, Account Name, Delegated Services (comma-separated)
   - Also included in `wafa-raw.json`
   - NOT scored — informational reference only
-- Output: list of `{accountId, accountName, services: [servicePrincipal, ...], servicesError?}` plus `delegated_administrators_error` in `wafa-raw.json` when the list could not be fully retrieved. Administrators collected before a failure are kept, and the report shows the error instead of implying none exist.
+- Output: list of `{accountId, accountName, services: [servicePrincipal, ...], servicesError?}`
+  plus `delegated_administrators_error` in `wafa-raw.json` when the
+  administrator list could not be fully retrieved. A service-list failure keeps
+  that administrator and any services already found, records `servicesError`,
+  and does not prevent later administrators from being listed. Administrators
+  collected before a list-level failure are kept, and the report shows the
+  error instead of implying none exist. The HTML report data uses the same
+  delegated-administrator keys as `wafa-raw.json`.
 
 ### FR-10: Report Generation
 

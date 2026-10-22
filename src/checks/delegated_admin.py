@@ -5,7 +5,6 @@ Only runs from management account.
 """
 
 import boto3
-from botocore.exceptions import ClientError
 
 
 def get_delegated_administrators():
@@ -36,7 +35,7 @@ def get_delegated_administrators():
                     for svc_page in svc_paginator.paginate(AccountId=account_id):
                         for svc in svc_page.get("DelegatedServices", []):
                             services.append(svc.get("ServicePrincipal", ""))
-                except ClientError as e:
+                except Exception as e:
                     services_error = str(e)
 
                 admin_entry = {

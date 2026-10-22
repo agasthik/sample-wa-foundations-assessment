@@ -473,7 +473,7 @@
     },
     {
       "check": "AWS Config delivery channel active",
-      "description": "AWS Config delivery channel should be configured for configuration change delivery.",
+      "description": "AWS Config delivery channel should successfully deliver configuration history or snapshots.",
       "status": "complete",
       "required": true,
       "weight": 6,

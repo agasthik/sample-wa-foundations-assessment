@@ -4,7 +4,7 @@
 
 ![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Tests](https://img.shields.io/badge/tests-218%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-225%20passing-brightgreen.svg)
 
 WAFA is an open-source AWS foundations assessment tool. Its assessment checks
 use read, list, and describe APIs to evaluate organization-level configuration
@@ -63,9 +63,10 @@ multi-account landing zone.
   denies it). When nothing is found and at least one Region could not be
   inspected, the check reports `error` and names those Regions.
 - IAM Identity Center and Control Tower skip a Region only when the AWS SDK's
-  endpoint data shows the service is not offered there. Connection,
-  throttling, and permission failures in any other Region are reported as
-  `error`, not as an absence.
+  endpoint data shows the service is not offered there. Control Tower searches
+  enabled opt-in Regions even if its default-Region `ListLandingZones` call
+  fails. If no Region establishes a result, connection, throttling, and
+  permission failures are reported as `error`, not as an absence.
 - Dedicated account and OU checks match names such as `Log Archive`, `Audit`,
   `Security Tooling`, `Security`, `Workloads`, and `Infrastructure`, ignoring
   case, spaces, hyphens, and underscores (so `LogArchive` also matches). Only
@@ -478,14 +479,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 
-# Run tests (218 tests)
+# Run tests (225 tests)
 python -m pytest tests/unit/ -v
 
 # Run with coverage
 python -m pytest tests/unit/ --cov=src --cov-report=term-missing
 ```
 
-The current suite contains 218 tests and reports 97% statement coverage.
+The current suite contains 225 tests and reports 97% statement coverage.
 
 ### Report UI
 
@@ -566,7 +567,7 @@ sample-wa-foundations-assessment/
 ├── report-ui/                   # Cloudscape React source for the HTML report
 ├── scripts/                     # Sample report generator
 ├── sample-reports/              # Generated sample HTML, CSV, and JSON
-├── tests/unit/                  # 218 pytest tests, 97% coverage
+├── tests/unit/                  # 225 pytest tests, 97% coverage
 ├── deployment/
 │   └── wafa-stack.yaml          # CloudFormation template
 ├── deploy.sh                    # Deployment script

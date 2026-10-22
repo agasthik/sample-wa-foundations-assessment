@@ -212,6 +212,6 @@ After Phase 1 ships, extend to verify compliance in every member account:
 ## Dependencies
 
 ```
-boto3==1.35.98
+boto3==1.42.97
 jinja2==3.1.6
 ```

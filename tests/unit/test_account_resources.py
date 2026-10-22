@@ -209,6 +209,27 @@ class TestCheckConfigDeliveryChannel:
         assert result["status"] == "incomplete"
 
     @patch("src.checks.account_resources.boto3.client")
+    def test_complete_when_snapshot_succeeds_after_history_failure(self, mock_client):
+        mock_cfg = MagicMock()
+        mock_cfg.describe_delivery_channels.return_value = {
+            "DeliveryChannels": [{"name": "default"}]
+        }
+        mock_cfg.describe_delivery_channel_status.return_value = {
+            "DeliveryChannelsStatus": [
+                {
+                    "name": "default",
+                    "configHistoryDeliveryInfo": {"lastStatus": "FAILURE"},
+                    "configSnapshotDeliveryInfo": {"lastStatus": "SUCCESS"},
+                }
+            ]
+        }
+        mock_client.return_value = mock_cfg
+
+        result = check_config_delivery_channel(MOCK_REGIONS)
+        assert result["status"] == "complete"
+        assert "error" not in result
+
+    @patch("src.checks.account_resources.boto3.client")
     def test_error(self, mock_client):
         mock_client.side_effect = Exception("Error")
 
@@ -629,6 +650,35 @@ class TestPartialRegionFailures:
         result = check_cloudtrail_exists(self.REGIONS)
         assert result["status"] == "error"
         assert "Could not inspect 1 region(s): ap-south-1" in result["error"]
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_unavailable_region_is_a_clean_miss(self, mock_client):
+        unavailable = MagicMock()
+        unavailable.describe_trails.side_effect = ClientError(
+            {"Error": {"Code": "OptInRequired", "Message": "Region unavailable"}},
+            "DescribeTrails",
+        )
+        unavailable.describe_instances.side_effect = ClientError(
+            {"Error": {"Code": "OptInRequired", "Message": "Region unavailable"}},
+            "DescribeInstances",
+        )
+        empty = MagicMock()
+        empty.describe_trails.return_value = {"trailList": []}
+        empty.describe_instances.return_value = {"Reservations": []}
+        mock_client.side_effect = _region_factory(
+            {"eu-south-1": unavailable, "us-east-1": empty}
+        )
+        regions = ("eu-south-1", "us-east-1")
+
+        cloudtrail = check_cloudtrail_exists(regions)
+        no_instances = check_no_ec2_instances(regions)
+
+        assert cloudtrail["status"] == "incomplete"
+        assert "error" not in cloudtrail
+        assert no_instances["status"] == "complete"
+        assert "error" not in no_instances
+        unavailable.describe_trails.assert_called_once()
+        unavailable.describe_instances.assert_called_once()
 
     @patch("src.checks.account_resources.boto3.client")
     def test_config_recorder_found_despite_denied_region(self, mock_client):
