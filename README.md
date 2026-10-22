@@ -62,11 +62,18 @@ multi-account landing zone.
   when another Region could not be inspected (for example, because an SCP
   denies it). When nothing is found and at least one Region could not be
   inspected, the check reports `error` and names those Regions.
+- IAM Identity Center and Control Tower skip a Region only when the AWS SDK's
+  endpoint data shows the service is not offered there. Connection,
+  throttling, and permission failures in any other Region are reported as
+  `error`, not as an absence.
 - Dedicated account and OU checks match names such as `Log Archive`, `Audit`,
   `Security Tooling`, `Security`, `Workloads`, and `Infrastructure`, ignoring
   case, spaces, hyphens, and underscores (so `LogArchive` also matches). Only
   active accounts count; suspended and closed accounts are ignored.
-- CloudTrail checks count only trails that are logging. The EC2 check ignores
+- CloudTrail checks count only trails that are logging, and evaluate each trail
+  separately so one unreadable trail does not hide another. Config checks count
+  only recorders that are recording and delivery channels whose last
+  configuration history or snapshot delivery succeeded. The EC2 check ignores
   terminated instances.
 - Member and standalone reports list only checks that ran as next steps, and
   score capability coverage using only the checks that ran. If AWS
@@ -559,7 +566,7 @@ sample-wa-foundations-assessment/
 ├── report-ui/                   # Cloudscape React source for the HTML report
 ├── scripts/                     # Sample report generator
 ├── sample-reports/              # Generated sample HTML, CSV, and JSON
-├── tests/unit/                  # 208 pytest tests, 97% coverage
+├── tests/unit/                  # 218 pytest tests, 97% coverage
 ├── deployment/
 │   └── wafa-stack.yaml          # CloudFormation template
 ├── deploy.sh                    # Deployment script
