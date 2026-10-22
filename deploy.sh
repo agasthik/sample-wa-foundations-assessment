@@ -97,14 +97,30 @@ SOURCE_BUCKET="wa-foundations-source-${ACCOUNT_ID}-${REGION}"
 SOURCE_KEY="wa-foundations-source.zip"
 echo "[3/5] Uploading source to s3://$SOURCE_BUCKET/$SOURCE_KEY..."
 
-# Create bucket if it doesn't exist
-if ! aws s3 ls "s3://$SOURCE_BUCKET" $AWS_OPTS 2>/dev/null; then
+# The bucket name is predictable, so confirm this account owns it before
+# uploading code that CodeBuild will run. HeadBucket with
+# --expected-bucket-owner returns 404 when the bucket does not exist and 403
+# when it exists but belongs to another account (or is otherwise inaccessible).
+if HEAD_ERROR=$(aws s3api head-bucket --bucket "$SOURCE_BUCKET" \
+        --expected-bucket-owner "$ACCOUNT_ID" $AWS_OPTS 2>&1 >/dev/null); then
+    echo "  Using existing source bucket owned by this account."
+elif [[ "$HEAD_ERROR" == *"(404)"* ]]; then
     # 'aws s3 mb' derives the LocationConstraint from --region, including for
     # us-east-1. Passing --create-bucket-configuration here is invalid: that
     # option belongs to 'aws s3api create-bucket', not the high-level 's3 mb'.
     aws s3 mb "s3://$SOURCE_BUCKET" $AWS_OPTS
+else
+    echo "  ERROR: Source bucket $SOURCE_BUCKET exists but is not accessible as a"
+    echo "  bucket owned by account $ACCOUNT_ID. Refusing to upload source code."
+    echo "  $HEAD_ERROR"
+    exit 1
 fi
-aws s3 cp "$ZIP_FILE" "s3://$SOURCE_BUCKET/$SOURCE_KEY" $AWS_OPTS --quiet
+aws s3api put-object \
+    --bucket "$SOURCE_BUCKET" \
+    --key "$SOURCE_KEY" \
+    --body "$ZIP_FILE" \
+    --expected-bucket-owner "$ACCOUNT_ID" \
+    $AWS_OPTS >/dev/null
 rm -f "$ZIP_FILE"
 echo "  Done."
 
@@ -151,10 +167,11 @@ RESULTS_BUCKET=$(aws cloudformation describe-stacks \
     --query 'Stacks[0].Outputs[?OutputKey==`ResultsBucket`].OutputValue' \
     --output text $AWS_OPTS)
 
-# Wait for this deployment's build to complete (up to 3 minutes)
+# Wait for this deployment's build to complete. Match the CodeBuild project
+# timeout (TimeoutInMinutes: 10) plus a minute for queueing.
 echo "  Waiting for CodeBuild to complete..."
 BUILD_SUCCEEDED="false"
-for i in $(seq 1 18); do
+for i in $(seq 1 66); do
     STATUS=$(aws codebuild batch-get-builds \
         --ids "$BUILD_ID" \
         --query 'builds[0].buildStatus' --output text $AWS_OPTS)
@@ -172,7 +189,7 @@ for i in $(seq 1 18); do
 done
 
 if [ "$BUILD_SUCCEEDED" != "true" ]; then
-    echo "  Build did not finish within the 3-minute wait window."
+    echo "  Build did not finish within the 11-minute wait window."
     echo "  Check status: aws codebuild batch-get-builds --ids $BUILD_ID $AWS_OPTS"
     exit 1
 fi
@@ -193,7 +210,8 @@ echo "Re-run assessment:"
 echo "  aws codebuild start-build --project-name $PROJECT_NAME $AWS_OPTS"
 echo ""
 echo "Tear down:"
-echo "  aws cloudformation delete-stack --stack-name $STACK_NAME $AWS_OPTS"
-echo "  aws s3 rb s3://$SOURCE_BUCKET --force $AWS_OPTS"
-echo "  # Note: the source bucket is region-specific (wa-foundations-source-<acct>-<region>);"
-echo "  # tear down each region you deployed to."
+echo "  The results bucket ($RESULTS_BUCKET) is versioned. Permanently delete every"
+echo "  object version and delete marker before deleting the stack, or the stack"
+echo "  deletion fails. Follow the 'Tear Down' section of README.md, then delete"
+echo "  the source bucket s3://$SOURCE_BUCKET. The source bucket is"
+echo "  region-specific; tear down each region you deployed to."

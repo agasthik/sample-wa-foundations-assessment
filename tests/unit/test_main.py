@@ -49,8 +49,8 @@ def test_deployment_names_use_wa_foundations_prefix():
     assert 'PROJECT_NAME="WAFA-${STACK_NAME}"' not in deploy_script
 
 
-def test_deploy_waits_for_build_id_returned_by_start_build(tmp_path):
-    """Deployment waits on its own build even when other builds may exist."""
+def _run_deploy_with_fake_aws(tmp_path, extra_env=None):
+    """Run deploy.sh against a fake aws CLI and return (result, call log)."""
     repository_root = Path(__file__).resolve().parents[2]
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -65,7 +65,14 @@ case "$1 $2" in
     "sts get-caller-identity")
         echo "111111111111"
         ;;
-    "s3 ls"|"s3 cp"|"cloudformation deploy")
+    "s3api head-bucket")
+        case "${FAKE_HEAD_BUCKET:-owned}" in
+            owned) ;;
+            missing) echo "An error occurred (404) when calling the HeadBucket operation: Not Found" >&2; exit 254 ;;
+            foreign) echo "An error occurred (403) when calling the HeadBucket operation: Forbidden" >&2; exit 254 ;;
+        esac
+        ;;
+    "s3 mb"|"s3api put-object"|"s3 ls"|"cloudformation deploy")
         ;;
     "codebuild start-build")
         echo "wa-foundations-assessment:deployment-build"
@@ -104,6 +111,7 @@ esac
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["AWS_CALL_LOG"] = str(call_log)
+    env.update(extra_env or {})
     result = subprocess.run(
         ["bash", "deploy.sh", "--profile", "test-profile", "--region", "us-east-1"],
         cwd=repository_root,
@@ -112,9 +120,15 @@ esac
         text=True,
         check=False,
     )
+    calls = call_log.read_text(encoding="utf-8") if call_log.exists() else ""
+    return result, calls
+
+
+def test_deploy_waits_for_build_id_returned_by_start_build(tmp_path):
+    """Deployment waits on its own build even when other builds may exist."""
+    result, calls = _run_deploy_with_fake_aws(tmp_path)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    calls = call_log.read_text(encoding="utf-8")
     assert calls.count("codebuild start-build ") == 1
     assert "codebuild list-builds-for-project" not in calls
     assert "AutoStartBuild=false" in calls
@@ -123,6 +137,27 @@ esac
         "--ids wa-foundations-assessment:deployment-build" in calls
     )
     assert "Build: wa-foundations-assessment:deployment-build" in result.stdout
+    assert "--expected-bucket-owner 111111111111" in calls
+    assert "s3 mb" not in calls
+
+
+def test_deploy_creates_missing_source_bucket(tmp_path):
+    result, calls = _run_deploy_with_fake_aws(tmp_path, {"FAKE_HEAD_BUCKET": "missing"})
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "s3 mb s3://wa-foundations-source-111111111111-us-east-1" in calls
+    assert "s3api put-object" in calls
+
+
+def test_deploy_refuses_source_bucket_owned_by_another_account(tmp_path):
+    """A same-named bucket in another account must never receive source code."""
+    result, calls = _run_deploy_with_fake_aws(tmp_path, {"FAKE_HEAD_BUCKET": "foreign"})
+
+    assert result.returncode == 1
+    assert "Refusing to upload source code" in result.stdout
+    assert "s3api put-object" not in calls
+    assert "s3 mb" not in calls
+    assert "cloudformation deploy" not in calls
 
 
 # ============================================================================

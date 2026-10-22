@@ -85,6 +85,20 @@ global_settings:
       reason: >-
         Log stream names are generated per invocation. The wildcard covers
         streams in the trigger Lambda's own log group only.
+    # === Results bucket access logging ===
+    - rule_id: CKV_AWS_18
+      path: deployment/wafa-stack.yaml
+      reason: >-
+        The results bucket holds low-sensitivity assessment reports. Server
+        access logging into the same bucket loops and needs a log-delivery
+        grant; a separate log bucket adds resources to every teardown.
+        CloudTrail S3 data events can audit report access when required.
+    - rule_id: CFN_NAG_W35
+      path: deployment/wafa-stack.yaml
+      reason: Same as CKV_AWS_18; results bucket access logging is not used.
+    - rule_id: AwsSolutions-S1
+      path: deployment/wafa-stack.yaml
+      reason: Same as CKV_AWS_18; results bucket access logging is not used.
     # === CodeBuild and naming ===
     - rule_id: CFN_NAG_W32
       path: deployment/wafa-stack.yaml
