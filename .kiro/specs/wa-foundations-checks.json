@@ -252,7 +252,7 @@
     "cfatChecks": ["FR-4.1", "FR-7.1", "FR-7.2"],
     "phase": 1,
     "automatable": true,
-    "apis": ["cloudtrail:DescribeTrails", "organizations:ListAWSServiceAccessForOrganization"]
+    "apis": ["cloudtrail:DescribeTrails", "cloudtrail:GetTrailStatus", "organizations:ListAWSServiceAccessForOrganization"]
   },
   {
     "id": "FND05-BP03",
@@ -340,7 +340,7 @@
     "cfatChecks": ["FR-7.7"],
     "phase": 1,
     "automatable": true,
-    "apis": ["cur:DescribeReportDefinitions"]
+    "apis": ["cur:DescribeReportDefinitions", "bcm-data-exports:ListExports"]
   },
   {
     "id": "FND06-BP02",

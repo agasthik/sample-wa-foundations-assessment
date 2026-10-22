@@ -39,7 +39,9 @@ wafa/
 │   │   ├── org_services.py  # Org service integrations (FR-4)
 │   │   ├── control_tower.py # Control Tower (FR-5)
 │   │   ├── identity.py      # IAM/IDC (FR-6)
-│   │   └── account_resources.py  # CloudTrail/Config/EC2/VPC (FR-7, FR-8)
+│   │   ├── account_resources.py  # CloudTrail/Config/EC2/VPC (FR-7, FR-8)
+│   │   ├── delegated_admin.py # Delegated administrators (FR-9, informational)
+│   │   └── maturity.py        # Maturity scoring (FR-11)
 │   ├── discovery/
 │   │   ├── account_type.py  # Detect mgmt vs member vs standalone
 │   │   └── regions.py       # Discover enabled regions
@@ -51,7 +53,7 @@ wafa/
 ├── deployment/
 │   └── wafa-stack.yaml      # CloudFormation template (Option B)
 ├── buildspec.yml            # CodeBuild instructions (Option B)
-├── run.sh                   # CloudShell one-liner (Option A)
+├── run-local.sh             # Local/CloudShell quick start (Option A)
 ├── requirements.txt
 ├── sample-reports/
 │   └── wafa-report.html
@@ -68,7 +70,7 @@ pip install -r requirements.txt
 python -m src.main --output ./reports
 ```
 
-`run.sh` does:
+`run-local.sh` does:
 ```bash
 #!/bin/bash
 pip install -q -r requirements.txt

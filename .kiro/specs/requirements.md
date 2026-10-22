@@ -27,7 +27,7 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
     deployments. `deploy.sh` sets it to `false`, starts one build directly, and
     waits on the exact build ID returned by CodeBuild.
 - FR-1.4: Support manual re-run: customer clicks "Start build" in CodeBuild console
-- FR-1.5: Auto-detect partition from the configured AWS region (`AWS_DEFAULT_REGION`; region discovery also accepts `AWS_REGION`):
+- FR-1.5: Auto-detect partition from the configured AWS region (`AWS_DEFAULT_REGION`, then `AWS_REGION`, then the active profile's region):
   - `us-gov-*` regions → `aws-us-gov` partition, default region `us-gov-west-1`
   - `cn-*` regions → `aws-cn` partition, default region `cn-north-1`
   - All other → `aws` partition, default region `us-east-1`
@@ -40,13 +40,15 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - If `MasterAccountId == currentAccountId`: this IS the management account → run ALL checks
   - If `MasterAccountId != currentAccountId`: this is a MEMBER account → print warning, run limited checks
   - If throws `AWSOrganizationsNotInUseException`: standalone account → print warning, run limited checks
-- FR-2.3: Discover regions by calling `ec2.describeRegions(Filters=[{Name: 'opt-in-status', Values: ['opt-in-not-required']}])`
-  - Returns only default-enabled regions (not opt-in regions)
+  - If throws any other error (for example, AccessDenied): account type `unknown` → print warning, record `detection_error`, run limited checks; FR-3.2 reports `error`
+- FR-2.3: Discover regions by calling `ec2.describeRegions(Filters=[{Name: 'opt-in-status', Values: ['opt-in-not-required', 'opted-in']}])`
+  - Returns default-enabled regions plus opt-in regions the account has enabled; opt-in regions that are not enabled are excluded
+  - The opted-in subset is passed to FR-5 so a landing zone homed in an opt-in region is found
   - If this call fails, fall back to a partition-specific list: 17 commercial regions, 2 GovCloud regions, or 2 China regions
 - FR-2.4: When NOT management account, run ONLY these checks:
   - FR-6.2 (IAM Users)
   - FR-7.1 (CloudTrail exists)
-  - FR-7.2 (CloudTrail is org trail — will be false since non-mgmt can't see org trails)
+  - FR-7.2 (CloudTrail is org trail — member accounts can see organization trails, so this can pass in limited mode)
   - FR-7.3 (Config recorder)
   - FR-7.4 (Config delivery channel)
   - FR-7.5 (EC2 instances)
@@ -70,18 +72,18 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - weight: 6, loe: 1, required: true
 
 - FR-3.3: **Minimum 4 Accounts**
-  - API: `organizations.listAccounts()` (paginate fully)
-  - Pass: total account count >= 4
+  - API: `organizations.listAccounts()` (paginate fully); count only accounts whose `State` (or legacy `Status`) is `ACTIVE`
+  - Pass: active account count >= 4
   - Status: "complete" if >= 4, "incomplete" if < 4
   - weight: 6, loe: 2, required: true
 
 - FR-3.4: **Log Archive Account Exists**
-  - Logic: from FR-3.3 account list, check if any account has `Name` (case-insensitive) == "log archive"
+  - Logic: from FR-3.3 account list, check if any active account has a normalized `Name` == "logarchive" (case, spaces, hyphens, and underscores ignored)
   - Status: "complete" if found, "incomplete" if not
   - weight: 6, loe: 2, required: true
 
 - FR-3.5: **Audit Account Exists**
-  - Logic: from FR-3.3 account list, check if any account has `Name` (case-insensitive) == "audit" OR "security tooling"
+  - Logic: from FR-3.3 account list, check if any active account has a normalized `Name` == "audit" OR "securitytooling" (case, spaces, hyphens, and underscores ignored)
   - Status: "complete" if found, "incomplete" if not
   - weight: 6, loe: 2, required: true
 
@@ -111,20 +113,20 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 
 - FR-3.10: **Security OU Exists**
   - API: `organizations.listOrganizationalUnitsForParent(ParentId=rootOuId)`
-  - Logic: check if any OU has `Name` (case-insensitive) == "security"
+  - Logic: check if any OU has normalized `Name` == "security" (case, spaces, hyphens, and underscores ignored)
   - Prerequisite: `rootOuId` comes from `listRoots()[0].Id`
   - Status: "complete" if found, "incomplete" if not
   - weight: 6, loe: 2, required: true
 
 - FR-3.11: **Workloads OU Exists**
   - Same API as FR-3.10
-  - Logic: check for `Name` (case-insensitive) == "workloads"
+  - Logic: check for normalized `Name` == "workloads" (case, spaces, hyphens, and underscores ignored)
   - Status: "complete" if found, "incomplete" if not
   - weight: 5, loe: 2, required: false
 
 - FR-3.12: **Infrastructure OU Exists**
   - Same API as FR-3.10
-  - Logic: check for `Name` (case-insensitive) == "infrastructure"
+  - Logic: check for normalized `Name` == "infrastructure" (case, spaces, hyphens, and underscores ignored)
   - Status: "complete" if found, "incomplete" if not
   - weight: 5, loe: 2, required: false
 
@@ -156,21 +158,21 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 **Prerequisite:** Only run if management account.
 
 - FR-5.1: **Control Tower Deployed**
-  - API: `controltower.listLandingZones()`
+  - API: `controltower.listLandingZones()`; if empty, retry in each opted-in region from FR-2.3 (a landing zone homed in an opt-in region is listed only from that region). Opted-in regions that botocore's endpoint data lists without a Control Tower endpoint are skipped; any other regional failure (including a connection failure) does not stop the search, and the check reports "error" only if no region returns a landing zone.
   - Pass: response `landingZones` array is non-empty
   - Status: "complete" if found, "incomplete" if empty
   - weight: 6, loe: 6, required: true
 
 - FR-5.2: **Control Tower Not Drifted**
   - Logic: from FR-5.1, get first landing zone ARN, then `controltower.getLandingZone(landingZoneIdentifier=arn)`
-  - Pass: `landingZone.driftStatus.status != "DRIFTED"`
-  - Status: "complete" if not drifted, "incomplete" if drifted
+  - Pass: `landingZone.driftStatus.status == "IN_SYNC"`
+  - Status: "complete" if `IN_SYNC`, "incomplete" if `DRIFTED`, "error" if the drift status is missing or any other value
   - weight: 6, loe: 2, required: true
 
 - FR-5.3: **Control Tower Latest Version**
   - Logic: from same `getLandingZone` response
-  - Pass: `landingZone.version == landingZone.latestAvailableVersion`
-  - Status: "complete" if versions match, "incomplete" if not
+  - Pass: `landingZone.version == landingZone.latestAvailableVersion` and both are non-empty
+  - Status: "complete" if versions match and are non-empty, "incomplete" otherwise (missing version fields are not a pass)
   - weight: 5, loe: 2, required: false
 
 ### FR-6: Identity Checks
@@ -178,11 +180,11 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 - FR-6.1: **IAM Identity Center Configured** (management account only)
   - API: `sso-admin.listInstances()` — iterate regions from FR-2.3 SEQUENTIALLY, stop on first success
   - Pass: any region returns non-empty `Instances` array
-  - Status: "complete" if found in any region, "incomplete" if not found after all regions tried
+  - Status: "complete" if found in any region; otherwise "error" if any region failed (permissions, throttling, or service errors), else "incomplete". Regions that botocore's endpoint data lists without an Identity Center endpoint are skipped; a connection failure in any other region is an error.
   - weight: 6, loe: 3, required: true
 
 - FR-6.2: **No IAM Users in Assessed Account** (runs in ALL modes)
-  - API: `iam.listUsers()` in `us-east-1` (IAM is global)
+  - API: `iam.listUsers()` in the partition default region from FR-1.5 (IAM is global within a partition)
   - Pass: `Users` array is empty (length == 0)
   - Status: "complete" if NO users, "incomplete" if users exist
   - weight: 4, loe: 1, required: false
@@ -192,14 +194,14 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 **These run in ALL modes** (management, member, standalone).
 
 - FR-7.1: **CloudTrail Trail Exists**
-  - API: `cloudtrail.describeTrails()` for EACH region from FR-2.3
-  - Pass: at least one region returns a non-empty `trailList`
-  - Status: "complete" if any trail found, "incomplete" if none
+  - API: `cloudtrail.describeTrails()` for EACH region from FR-2.3, then `cloudtrail.getTrailStatus(Name=TrailARN)` for the returned trails
+  - Pass: at least one trail has `IsLogging == true`
+  - Status: "complete" if any logging trail found, "incomplete" if none
   - weight: 6, loe: 3, required: true
 
 - FR-7.2: **CloudTrail Org Trail**
-  - Logic: from FR-7.1 results, check if any trail has `IsOrganizationTrail == true`
-  - Pass: at least one org trail exists
+  - Logic: from FR-7.1 results, check if any trail has `IsOrganizationTrail == true` and `IsLogging == true`
+  - Pass: at least one logging org trail exists (member accounts can see organization trails)
   - Status: "complete" if found, "incomplete" if not
   - weight: 6, loe: 1, required: true
 
@@ -218,8 +220,8 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - weight: 6, loe: 2, required: true
 
 - FR-7.5: **No EC2 in Management Account**
-  - API: `ec2.describeInstances()` for EACH region
-  - Pass: NO region has any `Reservations` (all empty)
+  - API: `ec2.describeInstances(Filters=[{Name: 'instance-state-name', Values: ['pending', 'running', 'stopping', 'stopped']}])` for EACH region
+  - Pass: NO region has any non-terminated instance (terminated instances stay visible for about an hour and are ignored)
   - Status: "complete" if NO instances anywhere, "incomplete" if any found
   - weight: 4, loe: 1, required: false
 
@@ -243,7 +245,7 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 - FR-8.1: **StackSets Org Access Enabled**
   - API: `cloudformation.describeOrganizationsAccess()`
   - Pass: response `Status == "ENABLED"`
-  - Status: "complete" if enabled, "incomplete" if disabled or error
+  - Status: "complete" if enabled, "incomplete" if disabled, "error" if the API call fails (per NFR-3.2)
   - weight: 5, loe: 1, required: false
 
 ### FR-9: Delegated Administrator Checks
@@ -256,7 +258,7 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
   - Columns: Account ID, Account Name, Delegated Services (comma-separated)
   - Also included in `wafa-raw.json`
   - NOT scored — informational reference only
-- Output: list of `{accountId, accountName, services: [servicePrincipal, ...]}`
+- Output: list of `{accountId, accountName, services: [servicePrincipal, ...], servicesError?}` plus `delegated_administrators_error` in `wafa-raw.json` when the list could not be fully retrieved. Administrators collected before a failure are kept, and the report shows the error instead of implying none exist.
 
 ### FR-10: Report Generation
 
@@ -282,7 +284,8 @@ WAFA is inspired by the Cloud Foundation Assessment pattern, but its implementat
 - FR-10.2: Generate CSV file with ALL check results (same columns as HTML table) — filename: `wafa-checks.csv`
 - FR-10.3: Generate raw JSON file with full assessment data — filename: `wafa-raw.json`
 - FR-10.4: Upload all files to S3 bucket: `s3://{bucket}/{account_id}/wafa-report.html`, `wafa-checks.csv`, `wafa-raw.json`
-- FR-10.5: If SNS topic exists and `EmailAddress` parameter was provided, publish completion notification with S3 URL
+- FR-10.5: If SNS topic exists and `EmailAddress` parameter was provided, publish a notification from `post_build`: a completion message with the S3 URL when `CODEBUILD_BUILD_SUCCEEDING` is `1`, otherwise a failure message with the build ID
+- FR-10.6: `python -m src.main` exits non-zero when every check returns `error` (usually missing permissions); partial errors still exit 0
 
 ### FR-11: Maturity Level Scoring
 
@@ -338,11 +341,11 @@ Based on the AWS Well-Architected Foundations maturity model (March 2026). Maps 
 
   | Level | Name | Description |
   |-------|------|-------------|
-  | 1 | Base | Single account or small number with no OU structure. No management account separation, no tagging, ad-hoc account creation. |
-  | 2 | Established | AWS Organizations in place with OU structure. Management account separated. Basic tagging applied. Documented account creation process. |
-  | 3 | Intermediate | OUs reflect security/infrastructure/workload separation. SCPs enforce guardrails. Control Tower automates provisioning. Tags enforced. |
-  | 4 | Advanced | Preventive + detective controls together. Progressive controls across environments. Tag compliance monitored. Defined ownership processes. |
-  | 5 | Expert | Controls, baselines, and provisioning are fully codified and continuously validated. Ephemeral environments on demand. Accurate metadata everywhere. |
+  | 1 | Base | One or more prerequisites for an established multi-account foundation are not yet complete. |
+  | 2 | Established | AWS Organizations, the management account, a minimum account baseline, and an organizational unit structure are established. |
+  | 3 | Intermediate | Core governance, account provisioning, identity, audit logging, and resource recording foundations are in place. |
+  | 4 | Advanced | Organization service integrations, preventive and detective controls, and management-account hygiene checks are complete. |
+  | 5 | Expert | Every check returned by the current Well-Architected Foundations Assessment report is complete. |
 
 ## Non-Functional Requirements
 
@@ -355,6 +358,7 @@ Based on the AWS Well-Architected Foundations maturity model (March 2026). Maps 
 ### NFR-2: Performance
 - NFR-2.1: Complete full assessment (all checks) within 2 minutes
 - NFR-2.2: Use `concurrent.futures.ThreadPoolExecutor` for per-region checks (EC2, VPC, CloudTrail, Config run across the enabled regions, typically ~17 commercial regions)
+  - Create clients in the calling thread; wait for every region. A match in any region decides the result even if other regions fail. With no match, any region that could not be inspected makes the check `error` (listing the regions), not `incomplete`.
 - NFR-2.3: Single API call for org service checks (one `listAWSServiceAccessForOrganization` call serves all FR-4.x checks)
 
 ### NFR-3: Reliability
@@ -496,19 +500,17 @@ Based on the **AWS Well-Architected Foundations** document (March 2026, 292 page
 
 ```
 tests/
-├── unit/
-│   ├── test_discovery.py          # FR-2: account type detection, region discovery
-│   ├── test_organization.py       # FR-3: org governance checks
-│   ├── test_org_services.py       # FR-4: service integration checks
-│   ├── test_control_tower.py      # FR-5: Control Tower checks
-│   ├── test_identity.py           # FR-6: IAM/IDC checks
-│   ├── test_account_resources.py  # FR-7 + FR-8: per-account resource checks and StackSets org access
-│   ├── test_delegated_admin.py    # FR-9: delegated administrator discovery
-│   ├── test_maturity_scoring.py   # FR-11: level calculation logic
-│   ├── test_report_generation.py  # FR-10: HTML/CSV/JSON output
-│   └── test_main.py               # main orchestration: account-type routing and report output
-└── integration/
-    └── test_full_assessment.py    # Full run against a real account (manual)
+└── unit/
+    ├── test_discovery.py          # FR-2: account type detection, region discovery
+    ├── test_organization.py       # FR-3: org governance checks
+    ├── test_org_services.py       # FR-4: service integration checks
+    ├── test_control_tower.py      # FR-5: Control Tower checks
+    ├── test_identity.py           # FR-6: IAM/IDC checks
+    ├── test_account_resources.py  # FR-7 + FR-8: per-account resource checks and StackSets org access
+    ├── test_delegated_admin.py    # FR-9: delegated administrator discovery
+    ├── test_maturity_scoring.py   # FR-11: level calculation logic
+    ├── test_report_generation.py  # FR-10: HTML/CSV/JSON output
+    └── test_main.py               # main orchestration: account-type routing and report output
 ```
 
 ### Unit Test Pattern
@@ -545,12 +547,12 @@ def test_scp_enabled_incomplete(mock_client):
     assert result["status"] == "incomplete"
 ```
 
-### Integration Test (manual, requires real AWS account)
+### Manual Live Validation (requires real AWS credentials)
 
-- Run against a management account with an org configured
-- Triggered manually: `pytest tests/integration/ --profile <aws-profile>`
+- There is no automated integration suite; unit tests mock all AWS calls and need no credentials
+- Validate against a real management account with an org configured by running `./run-local.sh` (or `python -m src.main`)
 - Validates: real API responses parse correctly, pagination works, permissions sufficient
-- NOT run in CI/CD — only by developer before release
+- NOT run in CI/CD — only by a developer with explicit authorization before release
 
 ### When to Write Tests
 
@@ -585,6 +587,7 @@ controltower:GetLandingZone
 cur:DescribeReportDefinitions
 bcm-data-exports:ListExports
 cloudtrail:DescribeTrails
+cloudtrail:GetTrailStatus
 config:DescribeConfigurationRecorders
 config:DescribeConfigurationRecorderStatus
 config:DescribeDeliveryChannels
@@ -603,6 +606,17 @@ s3:GetObject
 s3:GetObjectVersion
 s3:GetObjectTagging
 s3:GetObjectVersionTagging
+logs:CreateLogGroup
+logs:CreateLogStream
+logs:PutLogEvents
+sns:Publish  # only when the SNS notification topic is enabled
 ```
 
-Note: `s3:PutObject` is the ONLY write permission — used to upload results to the assessment S3 bucket.
+Note: the assessment checks themselves are read-only. The role's write
+permissions are scoped to WAFA-owned resources only:
+
+- `s3:PutObject` — upload reports to the WAFA results bucket
+- `logs:CreateLogGroup` / `logs:CreateLogStream` / `logs:PutLogEvents` —
+  CodeBuild service logs in the `/aws/codebuild/<stack-name>` log group
+- `sns:Publish` — assessment notifications to the WAFA SNS topic, granted only
+  when the topic is enabled
