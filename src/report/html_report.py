@@ -76,21 +76,30 @@ CAPABILITY_AXES = {
 }
 
 
+def _assessed_axis_checks(checks):
+    """Return, per capability axis, the mapped check names this run assessed."""
+    assessed = {c.get("check") for c in checks}
+    return {
+        axis_name: [name for name in check_names if name in assessed]
+        for axis_name, check_names in CAPABILITY_AXES.items()
+    }
+
+
 def _calculate_axis_scores(checks):
-    """Calculate percentage score per capability axis."""
-    scores = {}
-    for axis_name, check_names in CAPABILITY_AXES.items():
-        complete = sum(
-            1
-            for name in check_names
-            if any(
-                c.get("check") == name and c.get("status") == "complete" for c in checks
-            )
+    """Calculate percentage score per capability axis.
+
+    Scores use only the mapped checks this run assessed, so checks skipped in
+    limited mode are not counted as gaps.
+    """
+    complete = {c.get("check") for c in checks if c.get("status") == "complete"}
+    return {
+        axis_name: (
+            round(sum(1 for name in names if name in complete) / len(names) * 100)
+            if names
+            else 0
         )
-        scores[axis_name] = (
-            round((complete / len(check_names)) * 100) if check_names else 0
-        )
-    return scores
+        for axis_name, names in _assessed_axis_checks(checks).items()
+    }
 
 
 @cache
@@ -104,9 +113,12 @@ def _load_asset(name):
     return (ASSETS_DIR / name).read_text(encoding="utf-8")
 
 
-def _build_report_data(checks, maturity, delegated_admins, account_info):
+def _build_report_data(
+    checks, maturity, delegated_admins, account_info, delegated_admins_error=None
+):
     """Assemble the JSON payload rendered by the Cloudscape report UI."""
     axis_scores = _calculate_axis_scores(checks)
+    assessed_axis_checks = _assessed_axis_checks(checks)
     total = len(checks)
     complete = sum(1 for c in checks if c["status"] == "complete")
     incomplete = sum(1 for c in checks if c["status"] == "incomplete")
@@ -115,12 +127,14 @@ def _build_report_data(checks, maturity, delegated_admins, account_info):
         "checks": checks,
         "maturity": maturity,
         "delegated_admins": delegated_admins,
+        "delegated_admins_error": delegated_admins_error,
         "account_info": account_info,
         "axis_scores": [
             {
                 "name": name,
                 "score": score,
                 "check_count": len(CAPABILITY_AXES[name]),
+                "assessed_count": len(assessed_axis_checks[name]),
             }
             for name, score in axis_scores.items()
         ],
@@ -134,7 +148,13 @@ def _build_report_data(checks, maturity, delegated_admins, account_info):
     }
 
 
-def generate_html(checks, maturity, delegated_admins=None, account_info=None):
+def generate_html(
+    checks,
+    maturity,
+    delegated_admins=None,
+    account_info=None,
+    delegated_admins_error=None,
+):
     """Generate the interactive HTML report.
 
     Args:
@@ -142,6 +162,8 @@ def generate_html(checks, maturity, delegated_admins=None, account_info=None):
         maturity: maturity level result dict
         delegated_admins: list of delegated admin dicts (optional)
         account_info: account info dict (optional)
+        delegated_admins_error: why delegated admins could not be fully
+            listed (optional)
 
     Returns:
         str: Complete HTML document as string
@@ -165,7 +187,7 @@ def generate_html(checks, maturity, delegated_admins=None, account_info=None):
         # tojson escapes <, >, &, and ' as Unicode escapes, so AWS-provided
         # text cannot break out of the JSON data element.
         report_data=_build_report_data(
-            checks, maturity, delegated_admins, account_info
+            checks, maturity, delegated_admins, account_info, delegated_admins_error
         ),
         report_css=_load_asset("report-ui.css"),
         report_js=_load_asset("report-ui.js"),

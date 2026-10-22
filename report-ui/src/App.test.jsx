@@ -77,8 +77,8 @@ function reportData(overrides = {}) {
       is_management_account: true,
     },
     axis_scores: [
-      { name: "Multi-Account Environment", score: 50, check_count: 2 },
-      { name: "Networking & Connectivity", score: 0, check_count: 0 },
+      { name: "Multi-Account Environment", score: 50, check_count: 2, assessed_count: 2 },
+      { name: "Networking & Connectivity", score: 0, check_count: 0, assessed_count: 0 },
     ],
     summary: { total: 3, complete: 1, incomplete: 1, errors: 1, pct: 33 },
     ...overrides,
@@ -192,6 +192,57 @@ describe("report UI", () => {
     expect(container.querySelector("#capabilities").textContent).toContain(
       "Networking & Connectivity: no Phase 1 checks",
     );
+  });
+
+  it("marks axes with no assessed checks as not assessed", () => {
+    const { container } = renderReport({
+      axis_scores: [
+        { name: "Cloud Financial Management", score: 0, check_count: 3, assessed_count: 0 },
+      ],
+    });
+    expect(container.querySelector("#capabilities").textContent).toContain(
+      "Cloud Financial Management: not assessed in this account mode",
+    );
+  });
+
+  it("explains an undetermined account type", () => {
+    const { container } = renderReport({
+      account_info: {
+        account_id: "111111111111",
+        account_type: "unknown",
+        is_management_account: false,
+        detection_error: "AccessDeniedException",
+      },
+    });
+    const overview = container.querySelector("#overview").textContent;
+    expect(overview).toContain("Account type could not be determined");
+    expect(overview).toContain("AccessDeniedException");
+  });
+
+  it("shows delegated administrator errors", () => {
+    const { container } = renderReport({
+      delegated_admins: [
+        {
+          accountId: "222222222222",
+          accountName: "Audit",
+          services: [],
+          servicesError: "ThrottlingException",
+        },
+      ],
+      delegated_admins_error: "AccessDeniedException",
+    });
+    const section = container.querySelector("#delegated-admins").textContent;
+    expect(section).toContain("could not be fully listed");
+    expect(section).toContain("AccessDeniedException");
+    expect(section).toContain("Could not list services: ThrottlingException");
+  });
+
+  it("shows the delegated administrators section when listing failed", () => {
+    const { container } = renderReport({
+      delegated_admins: [],
+      delegated_admins_error: "AccessDeniedException",
+    });
+    expect(container.querySelector("#delegated-admins")).not.toBeNull();
   });
 
   it("toggles between light and dark mode from the top navigation", () => {

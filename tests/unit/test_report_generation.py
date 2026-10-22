@@ -155,6 +155,7 @@ class TestGenerateHtml:
             "name": "Networking & Connectivity",
             "score": 0,
             "check_count": 0,
+            "assessed_count": 0,
         }
         assert axes["Multi-Account Environment"]["check_count"] == len(
             CAPABILITY_AXES["Multi-Account Environment"]
@@ -239,6 +240,27 @@ class TestCalculateAxisScores:
         scores = _calculate_axis_scores(checks)
         assert scores["Networking & Connectivity"] == 0
         assert len(scores) == 7
+
+    def test_unassessed_checks_are_not_gaps(self):
+        """Checks skipped in limited mode do not lower an axis score."""
+        checks = [{"check": "AWS Organization exists", "status": "complete"}]
+        scores = _calculate_axis_scores(checks)
+        assert scores["Multi-Account Environment"] == 100
+        assert scores["Cloud Financial Management"] == 0
+
+    def test_report_data_counts_assessed_checks(self):
+        from src.report.html_report import _build_report_data
+
+        checks = [
+            {"check": "AWS Organization exists", "status": "complete"},
+            {"check": "No IAM users in account", "status": "incomplete"},
+        ]
+        data = _build_report_data(checks, {"level": 1}, [], {})
+        axes = {axis["name"]: axis for axis in data["axis_scores"]}
+        multi = axes["Multi-Account Environment"]
+        assert multi["assessed_count"] == 1
+        assert multi["check_count"] == len(CAPABILITY_AXES["Multi-Account Environment"])
+        assert data["delegated_admins_error"] is None
 
     def test_partial_scores(self):
         """Partial completion shows proportional score."""

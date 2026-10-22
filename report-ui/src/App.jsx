@@ -118,7 +118,7 @@ function sectionsFor(data) {
     { id: "capabilities", text: "Capability Coverage" },
     { id: "checks", text: "Check Results" },
   ];
-  if (data.delegated_admins.length) {
+  if (data.delegated_admins.length || data.delegated_admins_error) {
     sections.push({ id: "delegated-admins", text: "Delegated Administrators" });
   }
   if (data.maturity.scoring_model) {
@@ -190,6 +190,12 @@ function Overview({ data }) {
           <Counter label="Errors" value={summary.errors} status="error" />
           <Counter label="Completion" value={`${summary.pct}%`} />
         </ColumnLayout>
+        {accountInfo.detection_error && (
+          <Alert type="error" header="Account type could not be determined">
+            AWS Organizations could not be queried, so only the limited
+            per-account checks were run: {accountInfo.detection_error}
+          </Alert>
+        )}
         {isLimited && (
           <Alert type="warning" header="Limited assessment">
             This maturity level is provisional for the {accountType} account.
@@ -300,12 +306,15 @@ function MaturityProgress({ maturity }) {
 
 function CapabilityCoverage({ axes }) {
   const gaps = axes.filter((axis) => axis.check_count === 0);
+  const notAssessed = axes.filter(
+    (axis) => axis.check_count > 0 && axis.assessed_count === 0,
+  );
   return (
     <Container
       header={
         <Header
           variant="h2"
-          description="Percentage of mapped checks that are complete for each WA Foundations capability."
+          description="Percentage of assessed mapped checks that are complete for each WA Foundations capability. Checks not run in this account mode are excluded."
         >
           Capability Coverage (WA Foundations)
         </Header>
@@ -335,6 +344,12 @@ function CapabilityCoverage({ axes }) {
           <Box color="text-body-secondary" fontSize="body-s">
             {gaps.map((axis) => axis.name).join(", ")}: no Phase 1 checks are
             mapped to this capability yet, so it reports 0% coverage.
+          </Box>
+        )}
+        {notAssessed.length > 0 && (
+          <Box color="text-body-secondary" fontSize="body-s">
+            {notAssessed.map((axis) => axis.name).join(", ")}: not assessed in
+            this account mode, so 0% does not indicate a gap.
           </Box>
         )}
       </SpaceBetween>
@@ -512,9 +527,15 @@ function CheckResults({ checks, summary }) {
   );
 }
 
-function DelegatedAdmins({ admins }) {
+function DelegatedAdmins({ admins, error }) {
   return (
-    <Table
+    <SpaceBetween size="m">
+      {error && (
+        <Alert type="warning" header="Delegated administrators could not be fully listed">
+          {error}
+        </Alert>
+      )}
+      <Table
       variant="container"
       ariaLabels={{ tableLabel: "Delegated administrators" }}
       header={
@@ -535,10 +556,18 @@ function DelegatedAdmins({ admins }) {
         {
           id: "services",
           header: "Delegated Services",
-          cell: (admin) => (admin.services || []).join(", "),
+          cell: (admin) =>
+            admin.servicesError ? (
+              <StatusIndicator type="warning">
+                Could not list services: {admin.servicesError}
+              </StatusIndicator>
+            ) : (
+              (admin.services || []).join(", ")
+            ),
         },
       ]}
-    />
+      />
+    </SpaceBetween>
   );
 }
 
@@ -676,9 +705,12 @@ export default function App({ data }) {
               <Section id="checks">
                 <CheckResults checks={data.checks} summary={data.summary} />
               </Section>
-              {data.delegated_admins.length > 0 && (
+              {(data.delegated_admins.length > 0 || data.delegated_admins_error) && (
                 <Section id="delegated-admins">
-                  <DelegatedAdmins admins={data.delegated_admins} />
+                  <DelegatedAdmins
+                    admins={data.delegated_admins}
+                    error={data.delegated_admins_error}
+                  />
                 </Section>
               )}
               {data.maturity.scoring_model && (
