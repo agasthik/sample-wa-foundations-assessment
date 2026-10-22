@@ -39,11 +39,11 @@ vulnerabilities go through the repo **Security** tab, not a normal issue.
 ## Scanning scope (read this first — avoids the #1 misconception)
 
 **The region you deploy into does NOT limit what gets scanned.** WAFA discovers
-and scans **all default-enabled regions in the account**, regardless of where the
-CodeBuild job runs.
+and scans **all enabled regions in the account** (default-enabled plus opted-in),
+regardless of where the CodeBuild job runs.
 
-- Region discovery (`describe_regions` with `opt-in-status = opt-in-not-required`)
-  returns every default-enabled region in the account. The deploy region is only
+- Region discovery (`describe_regions` with `opt-in-status` in
+  `opt-in-not-required`, `opted-in`) returns every enabled region in the account. The deploy region is only
   the region used to *make that one API call* — it does not filter the results.
 - The per-account resource checks (CloudTrail, Config, EC2, VPC) then fan out
   across every region in that list, in parallel.
@@ -55,16 +55,22 @@ CodeBuild job runs.
 | The partition default (us-gov / cn) | — |
 
 **Intentional exclusions (not bugs, but confirm they match expectations):**
-- **Opt-in regions are skipped by design.** Regions you had to manually enable
-  (e.g. ap-east-1, me-south-1, some newer regions) are NOT scanned even if they
-  hold resources. See test case D4.
-- **A few calls are deliberately region-pinned and correct:** IAM `list_users`
-  always uses us-east-1 (IAM is global); Organizations/STS are region-agnostic
-  control-plane APIs; Control Tower `GetLandingZone` is re-pointed to the landing
-  zone's home region (parsed from its ARN).
+- **Opt-in regions that are NOT enabled are skipped.** Opt-in regions the account
+  has enabled (e.g. ap-east-1, me-south-1) ARE scanned. See test case D4.
+- **A few calls are deliberately partition-pinned:** IAM `list_users` uses the
+  partition default region (us-east-1, us-gov-west-1, or cn-north-1);
+  Organizations/STS are region-agnostic control-plane APIs; Control Tower
+  `GetLandingZone` is re-pointed to the landing zone's home region (parsed from
+  its ARN), and `ListLandingZones` is retried in opted-in regions when the
+  default region finds nothing.
+- **A region that cannot be inspected does not hide a match elsewhere.** If an SCP
+  denies one region, a trail or recorder found in another region still reports
+  complete. If nothing is found and some region was denied, the check reports
+  `error` naming the denied regions. A region whose SDK client cannot be
+  created is treated the same way. See test case D7.
 
 **So when a report is missing a region's resources, it's one of:** (a) that region
-is opt-in and excluded by design, (b) the account genuinely has nothing there, or
+is an opt-in region that is not enabled, (b) the account genuinely has nothing there, or
 (c) a deploy failure meant no report was produced at all (see A3) — NOT the scan
 being scoped to the deploy region. Test case D3 proves the multi-region scan works.
 
@@ -157,11 +163,18 @@ Owner: ____
   build's status does not determine deployment success.
 
 ### A9. Teardown
-- **Steps:** `aws cloudformation delete-stack --stack-name <stack>` then
-  `aws s3 rb s3://wa-foundations-source-<acct>-<region> --force`
-- **Expected:** Stack deletes cleanly (custom-resource Delete is a no-op); buckets removable.
-- **Watch for:** Results bucket has versioning enabled — confirm whether delete-stack
-  leaves the results bucket (it's not auto-emptied) and document the manual cleanup step.
+- **Steps:** Follow the README "Tear Down" commands: permanently delete every results-bucket
+  object version and delete marker, delete the stack, wait for deletion, then
+  `aws s3 rb s3://wa-foundations-source-<acct>-<region> --force`.
+- **Expected:** Stack deletes cleanly (custom-resource Delete is a no-op) and both buckets are gone.
+- **Watch for:** Running `delete-stack` without emptying the versioned results bucket first leaves
+  the stack in `DELETE_FAILED`; `deploy.sh` prints a pointer to the README procedure, not a one-liner.
+
+### A10. Failed build notification
+- **Steps:** Deploy with `--email`, then make the build fail (for example, remove the assessment
+  role's read permissions so every check errors).
+- **Expected:** The build is marked FAILED (every check errored, so the run exits non-zero) and the
+  SNS email subject is "Foundations Assessment FAILED" with the build ID, not "Complete".
 
 ---
 
@@ -219,9 +232,10 @@ Owner: ____
 
 Owner: ____
 
-### D1. Region discovery returns default-enabled regions only
+### D1. Region discovery returns enabled regions only
 - **Expected:** Opt-in regions (e.g. ap-east-1, me-south-1) are NOT in the scanned set unless enabled;
-  count printed matches `describe-regions` opt-in-not-required list.
+  count printed matches the `describe-regions` list filtered to `opt-in-not-required` and `opted-in`,
+  and the printed opted-in count matches the enabled opt-in regions.
 
 ### D2. Region discovery API failure → fallback list
 - **How to simulate:** Deny `ec2:DescribeRegions` on the role (or force an error).
@@ -234,8 +248,9 @@ Owner: ____
 
 ### D4. Opt-in region enabled in the account
 - **Precondition:** Enable an opt-in region; place a resource there.
-- **Expected:** Document whether WAFA scans it (by design it scans only opt-in-not-required regions,
-  so an opt-in region's resources may be missed — verify and note as expected behavior vs. gap).
+- **Expected:** WAFA scans the opted-in region and the relevant check reflects the resource. If the
+  Control Tower landing zone or IAM Identity Center instance is homed in that region, the Control
+  Tower and Identity Center checks report complete.
 
 ### D5. GovCloud partition (if available)
 - **Expected:** Partition detected as `aws-us-gov`; default region us-gov-west-1; CUR "Data Exports"
@@ -243,6 +258,16 @@ Owner: ____
 
 ### D6. China partition (if available)
 - **Expected:** Partition `aws-cn`; default region cn-north-1; Data Exports path skipped.
+
+For D5 and D6, also run locally with the Region set only in the profile (unset
+`AWS_DEFAULT_REGION` and `AWS_REGION`). **Expected:** the partition is still
+detected correctly, and "No IAM users in account" does not report `error`.
+
+### D7. Region denied by an SCP
+- **Precondition:** An SCP (for example, the Control Tower Region deny control) denies the
+  assessment role in at least one enabled region; a CloudTrail trail exists in an allowed region.
+- **Expected:** "CloudTrail trail exists" = complete. In an account with no trail, the check reports
+  `error` and its message names the denied regions rather than reporting incomplete.
 
 ---
 
@@ -253,7 +278,9 @@ Owner: ____
 For each, set up the "good" and "bad" state and confirm status flips correctly.
 
 ### E1. CloudTrail org trail (FR-7.2)
-- Org trail present → complete; absent → incomplete.
+- Logging org trail present → complete; absent → incomplete.
+- Stop logging on the only trail (`aws cloudtrail stop-logging`) → "CloudTrail trail exists" and
+  "CloudTrail organization trail" = incomplete; restart logging → complete.
 
 ### E2. AWS Config recorder active (FR-7.3)
 - Recorder recording in ≥1 region → complete; none recording → incomplete.
@@ -264,6 +291,12 @@ For each, set up the "good" and "bad" state and confirm status flips correctly.
 ### E4. No EC2 instances / No VPCs (FR-7.5 / 7.6, "absence" checks)
 - Zero instances/VPCs across all regions → complete; any present → incomplete.
 - **Edge:** confirm the default VPC counts as "present" (it usually does).
+- **Edge:** an instance terminated within the last hour does not make "No EC2 instances" incomplete.
+
+### E4a. Account and OU names (FR-3.3–3.5, FR-3.10–3.12)
+- Accounts named `LogArchive` / `Security_Tooling` and OUs named `SECURITY` or `work-loads` → the
+  matching checks are complete. A suspended or closed "Log Archive" account → incomplete and it is
+  not counted toward "Minimum 4 accounts".
 
 ### E5. Cost and Usage Report (FR-7.7, management only)
 - Legacy CUR present → complete; none but a CUR 2.0 Data Export present → complete;
@@ -284,10 +317,12 @@ For each, set up the "good" and "bad" state and confirm status flips correctly.
 ### E9. Control Tower (FR-5)
 - With a landing zone: deployed = complete; introduce drift → "not drifted" = incomplete;
   behind latest version → "latest version" = incomplete. No landing zone → checks incomplete (not error).
+  A missing or unrecognized drift status → "not drifted" = error, never complete.
 
 ### E10. IAM Identity Center (FR-6.1) permission vs. absence
 - SSO configured → complete; not configured anywhere → incomplete;
-  `sso:ListInstances` denied → **error** (not incomplete) — confirm the distinction.
+  `sso:ListInstances` denied or throttled in a region with no instance found elsewhere →
+  **error** (not incomplete) — confirm the distinction.
 
 ### E11. No IAM users (FR-6.2)
 - Zero IAM users → complete; ≥1 user → incomplete.
@@ -371,6 +406,11 @@ Owner: ____
 ### H2. Partial permissions
 - Run with a role missing several assessment permissions. **Expected:** graceful degradation —
   affected checks = error, assessment completes, error count shown in summary.
+- Deny `organizations:DescribeOrganization`. **Expected:** the run does not stop; account type is
+  `unknown`, the limited checks run, "Management account identified" = error, and the report shows
+  why the account type could not be determined.
+- Deny `organizations:ListDelegatedAdministrators`. **Expected:** the Delegated Administrators section
+  still appears with a warning; `wafa-raw.json` has `delegated_administrators_error`.
 
 ### H3. CodeBuild timeout boundary
 - Very large org / many regions. **Expected:** completes within the 10-min CodeBuild timeout,

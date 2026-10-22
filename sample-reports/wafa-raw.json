@@ -192,9 +192,9 @@
               "detail": "30 of 35 checks complete"
             }
           ],
-          "complete_count": 30,
-          "criteria_count": 35,
-          "progress": 85.7
+          "complete_count": 0,
+          "criteria_count": 1,
+          "progress": 0.0
         }
       ]
     }
@@ -445,7 +445,7 @@
     },
     {
       "check": "CloudTrail trail exists",
-      "description": "At least one CloudTrail trail should be configured for audit logging.",
+      "description": "At least one CloudTrail trail should be configured and logging.",
       "status": "complete",
       "required": true,
       "weight": 6,
@@ -454,7 +454,7 @@
     },
     {
       "check": "CloudTrail organization trail",
-      "description": "An organization trail should be configured for centralized audit logging across all accounts.",
+      "description": "An organization trail should be configured and logging for centralized audit logging across all accounts.",
       "status": "complete",
       "required": true,
       "weight": 6,
@@ -469,7 +469,7 @@
       "weight": 6,
       "loe": 2,
       "remediationLink": "https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html",
-      "error": "An error occurred (AccessDeniedException) when calling the DescribeConfigurationRecorders operation: User is not authorized to perform: config:DescribeConfigurationRecorders"
+      "error": "Could not inspect 2 region(s): us-east-1: An error occurred (AccessDeniedException) when calling the DescribeConfigurationRecorders operation: User is not authorized to perform: config:DescribeConfigurationRecorders; us-west-2: An error occurred (AccessDeniedException) when calling the DescribeConfigurationRecorders operation: User is not authorized to perform: config:DescribeConfigurationRecorders"
     },
     {
       "check": "AWS Config delivery channel active",
@@ -525,5 +525,6 @@
         "guardduty.amazonaws.com"
       ]
     }
-  ]
+  ],
+  "delegated_administrators_error": null
 }

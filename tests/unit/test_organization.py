@@ -97,6 +97,13 @@ class TestCheckManagementAccount:
         result = check_management_account({"is_management_account": False})
         assert result["status"] == "incomplete"
 
+    def test_error_when_account_type_unknown(self):
+        result = check_management_account(
+            {"is_management_account": False, "detection_error": "AccessDenied"}
+        )
+        assert result["status"] == "error"
+        assert result["error"] == "AccessDenied"
+
     def test_incomplete_missing_key(self):
         result = check_management_account({})
         assert result["status"] == "incomplete"
@@ -627,3 +634,66 @@ class TestCheckInfrastructureOu:
 
         result = check_infrastructure_ou()
         assert result["status"] == "error"
+
+
+# ============================================================================
+# Account state and name normalization
+# ============================================================================
+
+
+def _org_with_accounts(accounts):
+    paginator = MagicMock()
+    paginator.paginate.return_value = [{"Accounts": accounts}]
+    client = MagicMock()
+    client.get_paginator.return_value = paginator
+    return client
+
+
+class TestAccountStateAndNames:
+    @patch("src.checks.organization.boto3.client")
+    def test_closed_and_suspended_accounts_do_not_count(self, mock_client):
+        mock_client.return_value = _org_with_accounts(
+            [
+                {"Id": "1", "Name": "Management", "Status": "ACTIVE"},
+                {"Id": "2", "Name": "Log Archive", "State": "CLOSED"},
+                {"Id": "3", "Name": "Audit", "Status": "SUSPENDED"},
+                {"Id": "4", "Name": "Workload", "State": "PENDING_CLOSURE"},
+            ]
+        )
+
+        assert check_minimum_accounts()["status"] == "incomplete"
+        assert check_log_archive_account()["status"] == "incomplete"
+        assert check_audit_account()["status"] == "incomplete"
+
+    @patch("src.checks.organization.boto3.client")
+    def test_account_names_ignore_case_spaces_hyphens_underscores(self, mock_client):
+        for log_name, audit_name in (
+            ("LogArchive", "Security_Tooling"),
+            ("log-archive", "AUDIT"),
+        ):
+            mock_client.return_value = _org_with_accounts(
+                [{"Id": "1", "Name": log_name}, {"Id": "2", "Name": audit_name}]
+            )
+            assert check_log_archive_account()["status"] == "complete"
+            assert check_audit_account()["status"] == "complete"
+
+    @patch("src.checks.organization.boto3.client")
+    def test_ou_names_are_normalized(self, mock_client):
+        client = MagicMock()
+        client.list_roots.return_value = {"Roots": [{"Id": "r-1"}]}
+        paginator = MagicMock()
+        paginator.paginate.return_value = [
+            {
+                "OrganizationalUnits": [
+                    {"Id": "ou-1", "Name": "SECURITY"},
+                    {"Id": "ou-2", "Name": "work_loads"},
+                    {"Id": "ou-3", "Name": "Infra-structure"},
+                ]
+            }
+        ]
+        client.get_paginator.return_value = paginator
+        mock_client.return_value = client
+
+        assert check_security_ou()["status"] == "complete"
+        assert check_workloads_ou()["status"] == "complete"
+        assert check_infrastructure_ou()["status"] == "complete"

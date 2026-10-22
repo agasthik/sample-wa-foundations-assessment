@@ -1,3 +1,8 @@
+# Lint for the oldest supported runtime (README: Python 3.9+). Without this,
+# newer Ruff releases infer a later target and suggest 3.11+ APIs such as
+# datetime.UTC, which would break supported interpreters.
+target-version = "py39"
+
 [lint.per-file-ignores]
 # Assessment checks and discovery intentionally catch every exception: the
 # check contract turns any API or evaluation failure into a `status: "error"`

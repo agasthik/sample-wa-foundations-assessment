@@ -155,6 +155,7 @@ class TestGenerateHtml:
             "name": "Networking & Connectivity",
             "score": 0,
             "check_count": 0,
+            "assessed_count": 0,
         }
         assert axes["Multi-Account Environment"]["check_count"] == len(
             CAPABILITY_AXES["Multi-Account Environment"]
@@ -240,6 +241,27 @@ class TestCalculateAxisScores:
         assert scores["Networking & Connectivity"] == 0
         assert len(scores) == 7
 
+    def test_unassessed_checks_are_not_gaps(self):
+        """Checks skipped in limited mode do not lower an axis score."""
+        checks = [{"check": "AWS Organization exists", "status": "complete"}]
+        scores = _calculate_axis_scores(checks)
+        assert scores["Multi-Account Environment"] == 100
+        assert scores["Cloud Financial Management"] == 0
+
+    def test_report_data_counts_assessed_checks(self):
+        from src.report.html_report import _build_report_data
+
+        checks = [
+            {"check": "AWS Organization exists", "status": "complete"},
+            {"check": "No IAM users in account", "status": "incomplete"},
+        ]
+        data = _build_report_data(checks, {"level": 1}, [], {})
+        axes = {axis["name"]: axis for axis in data["axis_scores"]}
+        multi = axes["Multi-Account Environment"]
+        assert multi["assessed_count"] == 1
+        assert multi["check_count"] == len(CAPABILITY_AXES["Multi-Account Environment"])
+        assert data["delegated_admins_error"] is None
+
     def test_partial_scores(self):
         """Partial completion shows proportional score."""
         checks = [
@@ -320,3 +342,39 @@ class TestGenerateCsv:
             SystemExit, match="wafa-checks.csv data differs from wafa-raw.json checks"
         ):
             _verify_outputs(tmp_path)
+
+    def test_sample_verifier_rejects_html_json_metadata_drift(self, tmp_path):
+        """Account info and delegated admins must match between HTML and JSON."""
+        checks = _make_checks()
+        maturity = calculate_maturity_level(checks)
+        account_info = {"account_id": "111111111111", "account_type": "management"}
+        admins = [{"accountId": "333333333333", "accountName": "Audit", "services": []}]
+        raw = {
+            "account_info": account_info,
+            "maturity": maturity,
+            "checks": checks,
+            "delegated_administrators": admins,
+            "delegated_administrators_error": None,
+        }
+        (tmp_path / "wafa-checks.csv").write_text(
+            generate_csv(checks), encoding="utf-8"
+        )
+        raw_path = tmp_path / "wafa-raw.json"
+        raw_path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+        (tmp_path / "wafa-report.html").write_text(
+            generate_html(checks, maturity, admins, account_info), encoding="utf-8"
+        )
+        _verify_outputs(tmp_path)
+
+        for key, value, html_key in (
+            ("account_info", {"account_id": "999999999999"}, "account_info"),
+            ("delegated_administrators", [], "delegated_admins"),
+            ("delegated_administrators_error", "Denied", "delegated_admins_error"),
+        ):
+            raw_path.write_text(
+                json.dumps({**raw, key: value}, indent=2) + "\n", encoding="utf-8"
+            )
+            with pytest.raises(
+                SystemExit, match=f"HTML report data {html_key} differs"
+            ):
+                _verify_outputs(tmp_path)

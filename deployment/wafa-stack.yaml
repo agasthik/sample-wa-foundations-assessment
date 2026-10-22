@@ -67,8 +67,9 @@ Resources:
         RestrictPublicBuckets: true
       VersioningConfiguration:
         Status: Enabled
-      LoggingConfiguration:
-        LogFilePrefix: wa-foundations-access-logs/
+      # No server access logging: logging a bucket into itself loops and is
+      # never delivered without a logging.s3.amazonaws.com grant. Use
+      # CloudTrail S3 data events if report access must be audited.
       Tags:
         - Key: Application
           Value: WA-Foundations-Assessment
@@ -132,6 +133,7 @@ Resources:
               - cur:DescribeReportDefinitions
               - bcm-data-exports:ListExports
               - cloudtrail:DescribeTrails
+              - cloudtrail:GetTrailStatus
               - config:DescribeConfigurationRecorders
               - config:DescribeConfigurationRecorderStatus
               - config:DescribeDeliveryChannels
@@ -148,13 +150,18 @@ Resources:
             Action:
               - s3:PutObject
             Resource: !Sub '${WAFAResultsBucket.Arn}/*'
-          # S3 read for source bucket
+          # S3 read for source bucket. The ResourceAccount condition stops
+          # CodeBuild from fetching source from a same-named bucket owned by
+          # another account.
           - Effect: Allow
             Action:
               - s3:GetBucketAcl
               - s3:GetBucketLocation
               - s3:GetBucketVersioning
             Resource: !Sub 'arn:${AWS::Partition}:s3:::${SourceBucket}'
+            Condition:
+              StringEquals:
+                's3:ResourceAccount': !Ref 'AWS::AccountId'
           - Effect: Allow
             Action:
               - s3:GetObject
@@ -162,6 +169,9 @@ Resources:
               - s3:GetObjectTagging
               - s3:GetObjectVersionTagging
             Resource: !Sub 'arn:${AWS::Partition}:s3:::${SourceBucket}/${SourceKey}'
+            Condition:
+              StringEquals:
+                's3:ResourceAccount': !Ref 'AWS::AccountId'
           # CloudWatch Logs for CodeBuild (scoped to specific log group)
           - Effect: Allow
             Action:

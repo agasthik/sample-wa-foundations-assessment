@@ -5,7 +5,11 @@ FR-6.1 only runs if management account; FR-6.2 runs in all modes.
 """
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
+
+from src.discovery.regions import has_service_endpoint
+
+_REGION_UNAVAILABLE_CODES = {"InvalidRegion", "OptInRequired"}
 
 
 def check_iam_identity_center(regions):
@@ -15,7 +19,7 @@ def check_iam_identity_center(regions):
     Only runs from management account.
     """
     try:
-        access_denied_errors = []
+        region_errors = []
         for region in regions:
             try:
                 client = boto3.client("sso-admin", region_name=region)
@@ -31,20 +35,24 @@ def check_iam_identity_center(regions):
                         "loe": 3,
                         "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
                     }
+            except EndpointConnectionError as e:
+                # Skip only regions with no Identity Center endpoint; any
+                # other connection failure leaves this region's state unknown
+                if not has_service_endpoint("sso-admin", region):
+                    continue
+                region_errors.append(f"{region}: {e}")
             except ClientError as e:
-                # Distinguish permission failures from regions that don't support SSO
                 error_code = e.response.get("Error", {}).get("Code", "")
-                if error_code in (
-                    "AccessDeniedException",
-                    "AccessDenied",
-                    "UnauthorizedException",
-                ):
-                    access_denied_errors.append(f"{region}: {error_code}")
-                # Otherwise region might not support SSO, try next
-                continue
+                if error_code in _REGION_UNAVAILABLE_CODES:
+                    continue
+                # Permission, throttling, and service failures leave this
+                # region's state unknown
+                region_errors.append(f"{region}: {error_code or e}")
+            except Exception as e:
+                region_errors.append(f"{region}: {e}")
 
-        # Permission failures mean we couldn't determine the real state
-        if access_denied_errors:
+        # Any region we could not inspect means absence is not proven
+        if region_errors:
             return {
                 "check": "IAM Identity Center configured",
                 "description": "IAM Identity Center (SSO) should be configured for centralized identity management.",
@@ -53,7 +61,7 @@ def check_iam_identity_center(regions):
                 "weight": 6,
                 "loe": 3,
                 "remediationLink": "https://docs.aws.amazon.com/singlesignon/latest/userguide/enable-identity-center.html",
-                "error": f"Access denied calling sso-admin:ListInstances (IAM action sso:ListInstances) in: {', '.join(access_denied_errors)}",
+                "error": f"Could not call sso-admin:ListInstances (IAM action sso:ListInstances) in: {', '.join(region_errors)}",
             }
 
         # Not found in any region
@@ -79,17 +87,21 @@ def check_iam_identity_center(regions):
         }
 
 
-def check_no_iam_users():
+def check_no_iam_users(default_region="us-east-1"):
     """FR-6.2: Verify no IAM users exist in the assessed account.
 
     Runs in ALL modes (management, member, standalone).
-    IAM is global, so we query us-east-1.
+    IAM is global within a partition, so we query the partition default
+    region (us-east-1, us-gov-west-1, or cn-north-1).
     """
     try:
-        client = boto3.client("iam", region_name="us-east-1")
-        resp = client.list_users()
-        users = resp.get("Users", [])
-        no_users = len(users) == 0
+        client = boto3.client("iam", region_name=default_region)
+        paginator = client.get_paginator("list_users")
+        no_users = True
+        for page in paginator.paginate():
+            if page.get("Users"):
+                no_users = False
+                break
 
         return {
             "check": "No IAM users in account",
@@ -113,15 +125,16 @@ def check_no_iam_users():
         }
 
 
-def run_all(regions, is_management_account=True):
+def run_all(regions, is_management_account=True, default_region="us-east-1"):
     """Run all identity checks.
 
     Args:
         regions: list of region names for IDC discovery
         is_management_account: if True, run FR-6.1; FR-6.2 always runs
+        default_region: partition default region used for IAM
     """
     results = []
     if is_management_account:
         results.append(check_iam_identity_center(regions))
-    results.append(check_no_iam_users())
+    results.append(check_no_iam_users(default_region))
     return results

@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.env.*
 .venv/
 venv/
 *.egg-info/
@@ -36,11 +37,18 @@ htmlcov/
 # Generated artifacts
 reports/
 *.zip
+# Assessment reports written to the repository root by run-local.sh
+# (--output .). They contain real account data. sample-reports/ stays tracked.
+/wafa-report.html
+/wafa-checks.csv
+/wafa-raw.json
 
-# Ignore
+# Local archive
 archive/
-# Report UI build dependencies
+
+# Report UI build dependencies and npm logs
 node_modules/
+npm-debug.log*
 
 # Local CodeGraph index and runtime state
 .codegraph/

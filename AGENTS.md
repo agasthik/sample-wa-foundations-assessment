@@ -60,21 +60,29 @@ STS caller account with `Organization.MasterAccountId`:
 - Management account: run all organization and account checks.
 - Member account: run the limited per-account assessment.
 - Standalone account: run the same limited per-account assessment.
+- Unknown: `DescribeOrganization` failed for another reason (for example,
+  AccessDenied). Record `detection_error`, run the limited assessment, and
+  report "Management account identified" as `error`.
 
 Organization existence and management-account identification checks run in
 every mode. Management-only checks must be skipped in limited mode rather than
 synthesized as failed results.
 
-`detect_partition()` maps the configured Region to the `aws`, `aws-us-gov`, or
-`aws-cn` partition and selects the appropriate default Region for global or
-partition-scoped checks. Region discovery accepts the configured AWS Region,
-calls EC2 `DescribeRegions`, and currently includes only
-`opt-in-not-required` Regions. Preserve the partition-specific fallback lists
-when discovery fails.
+`detect_partition()` resolves the configured Region (`AWS_DEFAULT_REGION`, then
+`AWS_REGION`, then the active profile's Region) and maps it to the `aws`,
+`aws-us-gov`, or `aws-cn` partition. It selects the default Region for global
+or partition-scoped checks, including IAM. Region discovery calls EC2
+`DescribeRegions` and includes `opt-in-not-required` and `opted-in` Regions.
+The opted-in subset is also passed to the Control Tower checks, because
+`ListLandingZones` returns a landing zone homed in an opt-in Region only when
+called in that Region. Preserve the partition-specific fallback lists when
+discovery fails.
 
-Per-account regional checks in `src/checks/account_resources.py` use
-`ThreadPoolExecutor` for concurrent scanning. Preserve bounded concurrency,
-Region-unavailable handling, and the distinction between:
+Per-account regional checks in `src/checks/account_resources.py` use the shared
+`_scan_regions` helper, which creates clients in the calling thread and probes
+every Region concurrently through a bounded `ThreadPoolExecutor`. It waits for
+every Region, so one Region's failure never hides a match elsewhere. Preserve
+bounded concurrency, Region-unavailable handling, and the distinction between:
 
 - finding a resource in any Region
 - confirming that a resource is absent from every inspected Region

@@ -4,7 +4,7 @@
 
 ![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
-![Tests](https://img.shields.io/badge/tests-170%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-218%20passing-brightgreen.svg)
 
 WAFA is an open-source AWS foundations assessment tool. Its assessment checks
 use read, list, and describe APIs to evaluate organization-level configuration
@@ -55,11 +55,33 @@ multi-account landing zone.
 
 - Organization-level checks require the management account.
 - Per-account resource checks inspect only the account running WAFA.
-- Regional checks currently inspect default-enabled Regions
-  (`opt-in-not-required`), not opted-in Regions.
-- Dedicated account and OU checks use exact, case-insensitive names such as
-  `Log Archive`, `Audit`, `Security Tooling`, `Security`, `Workloads`, and
-  `Infrastructure`.
+- Regional checks inspect default-enabled Regions (`opt-in-not-required`) and
+  opt-in Regions the account has enabled (`opted-in`). Opt-in Regions that are
+  not enabled are skipped.
+- A regional check that finds a resource in any Region uses that result even
+  when another Region could not be inspected (for example, because an SCP
+  denies it). When nothing is found and at least one Region could not be
+  inspected, the check reports `error` and names those Regions.
+- IAM Identity Center and Control Tower skip a Region only when the AWS SDK's
+  endpoint data shows the service is not offered there. Connection,
+  throttling, and permission failures in any other Region are reported as
+  `error`, not as an absence.
+- Dedicated account and OU checks match names such as `Log Archive`, `Audit`,
+  `Security Tooling`, `Security`, `Workloads`, and `Infrastructure`, ignoring
+  case, spaces, hyphens, and underscores (so `LogArchive` also matches). Only
+  active accounts count; suspended and closed accounts are ignored.
+- CloudTrail checks count only trails that are logging, and evaluate each trail
+  separately so one unreadable trail does not hide another. Config checks count
+  only recorders that are recording and delivery channels whose last
+  configuration history or snapshot delivery succeeded. The EC2 check ignores
+  terminated instances.
+- Member and standalone reports list only checks that ran as next steps, and
+  score capability coverage using only the checks that ran. If AWS
+  Organizations cannot be queried, WAFA runs the limited checks and reports the
+  account type as unknown.
+- `python -m src.main` exits non-zero only when every check returns `error`. In
+  CodeBuild, that marks the build failed, and the optional SNS email reports
+  the failure instead of completion.
 - Service-integration checks determine whether trusted access is enabled; they
   do not prove that every member account is fully configured for that service.
 
@@ -309,7 +331,11 @@ The script uploads it to:
 s3://wa-foundations-source-<account-id>-<region>/wa-foundations-source.zip
 ```
 
-The local temporary file is deleted after upload. The source bucket is created
+The local temporary file is deleted after upload. Before uploading, the script
+confirms that the account being deployed owns the source bucket, using
+`head-bucket --expected-bucket-owner`. It stops if a bucket with that name
+belongs to another account. The CodeBuild role can read source only from a
+bucket in its own account (`s3:ResourceAccount`). The source bucket is created
 outside CloudFormation and must remain available for future CodeBuild runs.
 Deleting it causes builds to fail during `DOWNLOAD_SOURCE`.
 
@@ -452,14 +478,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 
-# Run tests (170 tests)
+# Run tests (218 tests)
 python -m pytest tests/unit/ -v
 
 # Run with coverage
 python -m pytest tests/unit/ --cov=src --cov-report=term-missing
 ```
 
-The current suite contains 170 tests and reports 95% statement coverage.
+The current suite contains 218 tests and reports 97% statement coverage.
 
 ### Report UI
 
@@ -540,7 +566,7 @@ sample-wa-foundations-assessment/
 ├── report-ui/                   # Cloudscape React source for the HTML report
 ├── scripts/                     # Sample report generator
 ├── sample-reports/              # Generated sample HTML, CSV, and JSON
-├── tests/unit/                  # 170 pytest tests, 95% coverage
+├── tests/unit/                  # 218 pytest tests, 97% coverage
 ├── deployment/
 │   └── wafa-stack.yaml          # CloudFormation template
 ├── deploy.sh                    # Deployment script

@@ -12,11 +12,14 @@ def get_delegated_administrators():
     """FR-9: Retrieve all delegated administrators and their services.
 
     Returns:
-        list of dicts: [{accountId, accountName, services: [str, ...]}]
+        tuple(list of dicts, str | None): the administrators found, as
+        [{accountId, accountName, services: [str, ...], servicesError?}],
+        and an error message when the list could not be fully retrieved.
+        Administrators collected before a failure are kept.
     """
+    admins = []
     try:
         client = boto3.client("organizations")
-        admins = []
         paginator = client.get_paginator("list_delegated_administrators")
         for page in paginator.paginate():
             for admin in page.get("DelegatedAdministrators", []):
@@ -25,6 +28,7 @@ def get_delegated_administrators():
 
                 # Get services for this delegated admin
                 services = []
+                services_error = None
                 try:
                     svc_paginator = client.get_paginator(
                         "list_delegated_services_for_account"
@@ -32,17 +36,18 @@ def get_delegated_administrators():
                     for svc_page in svc_paginator.paginate(AccountId=account_id):
                         for svc in svc_page.get("DelegatedServices", []):
                             services.append(svc.get("ServicePrincipal", ""))
-                except ClientError:
-                    pass  # Skip if we can't get services for this account
+                except ClientError as e:
+                    services_error = str(e)
 
-                admins.append(
-                    {
-                        "accountId": account_id,
-                        "accountName": account_name,
-                        "services": services,
-                    }
-                )
+                admin_entry = {
+                    "accountId": account_id,
+                    "accountName": account_name,
+                    "services": services,
+                }
+                if services_error:
+                    admin_entry["servicesError"] = services_error
+                admins.append(admin_entry)
 
-        return admins
-    except Exception:
-        return []
+        return admins, None
+    except Exception as e:
+        return admins, str(e)

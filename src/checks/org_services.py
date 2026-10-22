@@ -128,7 +128,8 @@ def check_org_service(
 ):
     """Check if a specific service principal is enabled at org level.
 
-    This is a generic check function used by run_all() for each FR-4.x check.
+    Standalone single-service helper; run_all() inlines this logic so all
+    FR-4.x checks share one ListAWSServiceAccessForOrganization call (NFR-2.3).
     """
     try:
         principals = _get_enabled_service_principals()

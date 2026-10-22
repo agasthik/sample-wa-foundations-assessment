@@ -12,14 +12,24 @@ phases:
       - echo "Starting Well-Architected Foundations Assessment..."
       - python -m src.main --output s3://$RESULTS_BUCKET/
 
+  # post_build also runs after a failed build phase, so report the outcome
+  # from CODEBUILD_BUILD_SUCCEEDING rather than assuming success.
   post_build:
     commands:
-      - echo "Well-Architected Foundations Assessment complete."
       - |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then
+          echo "Well-Architected Foundations Assessment complete."
+          SUBJECT="Foundations Assessment Complete"
+          MESSAGE="Assessment complete for account $ACCOUNT_ID. Results: s3://$RESULTS_BUCKET/$ACCOUNT_ID/"
+        else
+          echo "Well-Architected Foundations Assessment FAILED."
+          SUBJECT="Foundations Assessment FAILED"
+          MESSAGE="Assessment FAILED for account $ACCOUNT_ID. Reports may be missing or out of date. Review CodeBuild build $CODEBUILD_BUILD_ID."
+        fi
         if [ -n "$SNS_TOPIC_ARN" ]; then
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           aws sns publish \
             --topic-arn "$SNS_TOPIC_ARN" \
-            --subject "Foundations Assessment Complete" \
-            --message "Assessment complete for account $ACCOUNT_ID. Results: s3://$RESULTS_BUCKET/$ACCOUNT_ID/"
+            --subject "$SUBJECT" \
+            --message "$MESSAGE"
         fi

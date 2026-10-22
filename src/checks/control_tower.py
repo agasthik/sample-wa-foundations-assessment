@@ -5,9 +5,46 @@ Only runs if the current account is the management account.
 """
 
 import boto3
+from botocore.exceptions import EndpointConnectionError
+
+from src.discovery.regions import has_service_endpoint
 
 
-def _get_landing_zone_details(client):
+def _list_landing_zones(client, opted_in_regions=()):
+    """List landing zones, including those homed in an opt-in region.
+
+    ListLandingZones returns a landing zone from any commercial region, but
+    a landing zone whose home region is an opt-in region is returned only
+    when called in that home region. When the default-region call finds
+    nothing, retry in each opted-in region. Regions that botocore's endpoint
+    data lists without a Control Tower endpoint are skipped. Any other
+    regional failure, including a connection failure, does not stop the
+    search; the first such failure is raised only if no region returns a
+    landing zone, so the check reports an error rather than a false absence.
+    """
+    landing_zones = client.list_landing_zones().get("landingZones", [])
+    if landing_zones:
+        return landing_zones
+    first_error = None
+    for region in opted_in_regions:
+        try:
+            regional = boto3.client("controltower", region_name=region)
+            landing_zones = regional.list_landing_zones().get("landingZones", [])
+        except Exception as e:
+            no_endpoint = isinstance(
+                e, EndpointConnectionError
+            ) and not has_service_endpoint("controltower", region)
+            if first_error is None and not no_endpoint:
+                first_error = e
+            continue
+        if landing_zones:
+            return landing_zones
+    if first_error is not None:
+        raise first_error
+    return []
+
+
+def _get_landing_zone_details(client, opted_in_regions=()):
     """Fetch landing zone details, honoring the landing zone's home region.
 
     ListLandingZones is region-agnostic, but GetLandingZone must be called
@@ -18,8 +55,7 @@ def _get_landing_zone_details(client):
     Returns:
         dict or None: landingZone details, or None if no landing zone exists
     """
-    list_resp = client.list_landing_zones()
-    landing_zones = list_resp.get("landingZones", [])
+    landing_zones = _list_landing_zones(client, opted_in_regions)
     if not landing_zones:
         return None
 
@@ -30,12 +66,11 @@ def _get_landing_zone_details(client):
     return get_resp.get("landingZone", {})
 
 
-def check_control_tower_deployed():
+def check_control_tower_deployed(opted_in_regions=()):
     """FR-5.1: Verify Control Tower is deployed (landing zone exists)."""
     try:
         client = boto3.client("controltower")
-        resp = client.list_landing_zones()
-        landing_zones = resp.get("landingZones", [])
+        landing_zones = _list_landing_zones(client, opted_in_regions)
         deployed = len(landing_zones) > 0
         return {
             "check": "Control Tower deployed",
@@ -59,11 +94,11 @@ def check_control_tower_deployed():
         }
 
 
-def check_control_tower_not_drifted():
+def check_control_tower_not_drifted(opted_in_regions=()):
     """FR-5.2: Verify Control Tower landing zone is not drifted."""
     try:
         client = boto3.client("controltower")
-        landing_zone = _get_landing_zone_details(client)
+        landing_zone = _get_landing_zone_details(client, opted_in_regions)
 
         if landing_zone is None:
             return {
@@ -76,8 +111,19 @@ def check_control_tower_not_drifted():
                 "remediationLink": "https://docs.aws.amazon.com/controltower/latest/userguide/drift.html",
             }
 
-        drift_status = landing_zone.get("driftStatus", {}).get("status", "UNKNOWN")
-        not_drifted = drift_status != "DRIFTED"
+        drift_status = (landing_zone.get("driftStatus") or {}).get("status")
+        if drift_status not in ("IN_SYNC", "DRIFTED"):
+            return {
+                "check": "Control Tower not drifted",
+                "description": "Control Tower landing zone should not be in a drifted state.",
+                "status": "error",
+                "required": True,
+                "weight": 6,
+                "loe": 2,
+                "remediationLink": "https://docs.aws.amazon.com/controltower/latest/userguide/drift.html",
+                "error": f"Landing zone drift status is unavailable ({drift_status or 'missing'}).",
+            }
+        not_drifted = drift_status == "IN_SYNC"
 
         return {
             "check": "Control Tower not drifted",
@@ -101,11 +147,11 @@ def check_control_tower_not_drifted():
         }
 
 
-def check_control_tower_latest_version():
+def check_control_tower_latest_version(opted_in_regions=()):
     """FR-5.3: Verify Control Tower is on the latest version."""
     try:
         client = boto3.client("controltower")
-        landing_zone = _get_landing_zone_details(client)
+        landing_zone = _get_landing_zone_details(client, opted_in_regions)
 
         if landing_zone is None:
             return {
@@ -144,10 +190,15 @@ def check_control_tower_latest_version():
         }
 
 
-def run_all():
-    """Run all Control Tower checks (FR-5.1 through FR-5.3)."""
+def run_all(opted_in_regions=()):
+    """Run all Control Tower checks (FR-5.1 through FR-5.3).
+
+    Args:
+        opted_in_regions: opt-in regions enabled for the account, searched
+            when the default-region ListLandingZones call finds nothing
+    """
     return [
-        check_control_tower_deployed(),
-        check_control_tower_not_drifted(),
-        check_control_tower_latest_version(),
+        check_control_tower_deployed(opted_in_regions),
+        check_control_tower_not_drifted(opted_in_regions),
+        check_control_tower_latest_version(opted_in_regions),
     ]

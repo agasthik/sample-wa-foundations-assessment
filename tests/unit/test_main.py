@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.main import print_summary, run, upload_to_s3
+from src.main import exit_code, print_summary, run, upload_to_s3
 
 
 def test_deployment_names_use_wa_foundations_prefix():
@@ -49,8 +49,8 @@ def test_deployment_names_use_wa_foundations_prefix():
     assert 'PROJECT_NAME="WAFA-${STACK_NAME}"' not in deploy_script
 
 
-def test_deploy_waits_for_build_id_returned_by_start_build(tmp_path):
-    """Deployment waits on its own build even when other builds may exist."""
+def _run_deploy_with_fake_aws(tmp_path, extra_env=None):
+    """Run deploy.sh against a fake aws CLI and return (result, call log)."""
     repository_root = Path(__file__).resolve().parents[2]
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -65,7 +65,14 @@ case "$1 $2" in
     "sts get-caller-identity")
         echo "111111111111"
         ;;
-    "s3 ls"|"s3 cp"|"cloudformation deploy")
+    "s3api head-bucket")
+        case "${FAKE_HEAD_BUCKET:-owned}" in
+            owned) ;;
+            missing) echo "An error occurred (404) when calling the HeadBucket operation: Not Found" >&2; exit 254 ;;
+            foreign) echo "An error occurred (403) when calling the HeadBucket operation: Forbidden" >&2; exit 254 ;;
+        esac
+        ;;
+    "s3 mb"|"s3api put-object"|"s3 ls"|"cloudformation deploy")
         ;;
     "codebuild start-build")
         echo "wa-foundations-assessment:deployment-build"
@@ -104,6 +111,7 @@ esac
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["AWS_CALL_LOG"] = str(call_log)
+    env.update(extra_env or {})
     result = subprocess.run(
         ["bash", "deploy.sh", "--profile", "test-profile", "--region", "us-east-1"],
         cwd=repository_root,
@@ -112,9 +120,15 @@ esac
         text=True,
         check=False,
     )
+    calls = call_log.read_text(encoding="utf-8") if call_log.exists() else ""
+    return result, calls
+
+
+def test_deploy_waits_for_build_id_returned_by_start_build(tmp_path):
+    """Deployment waits on its own build even when other builds may exist."""
+    result, calls = _run_deploy_with_fake_aws(tmp_path)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    calls = call_log.read_text(encoding="utf-8")
     assert calls.count("codebuild start-build ") == 1
     assert "codebuild list-builds-for-project" not in calls
     assert "AutoStartBuild=false" in calls
@@ -123,6 +137,27 @@ esac
         "--ids wa-foundations-assessment:deployment-build" in calls
     )
     assert "Build: wa-foundations-assessment:deployment-build" in result.stdout
+    assert "--expected-bucket-owner 111111111111" in calls
+    assert "s3 mb" not in calls
+
+
+def test_deploy_creates_missing_source_bucket(tmp_path):
+    result, calls = _run_deploy_with_fake_aws(tmp_path, {"FAKE_HEAD_BUCKET": "missing"})
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "s3 mb s3://wa-foundations-source-111111111111-us-east-1" in calls
+    assert "s3api put-object" in calls
+
+
+def test_deploy_refuses_source_bucket_owned_by_another_account(tmp_path):
+    """A same-named bucket in another account must never receive source code."""
+    result, calls = _run_deploy_with_fake_aws(tmp_path, {"FAKE_HEAD_BUCKET": "foreign"})
+
+    assert result.returncode == 1
+    assert "Refusing to upload source code" in result.stdout
+    assert "s3api put-object" not in calls
+    assert "s3 mb" not in calls
+    assert "cloudformation deploy" not in calls
 
 
 # ============================================================================
@@ -253,7 +288,7 @@ def _mock_management_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": []}
+            mock.get_paginator.return_value.paginate.return_value = [{"Users": []}]
 
         elif service == "ec2":
             mock.describe_regions.return_value = {
@@ -266,6 +301,7 @@ def _mock_management_account_boto3():
             mock.describe_vpcs.return_value = {"Vpcs": []}
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [
                     {
@@ -335,9 +371,12 @@ def _mock_member_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": [{"UserName": "legacy-user"}]}
+            mock.get_paginator.return_value.paginate.return_value = [
+                {"Users": [{"UserName": "legacy-user"}]}
+            ]
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [{"Name": "trail", "IsOrganizationTrail": False}]
             }
@@ -397,9 +436,12 @@ def _mock_standalone_account_boto3():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": [{"UserName": "legacy-user"}]}
+            mock.get_paginator.return_value.paginate.return_value = [
+                {"Users": [{"UserName": "legacy-user"}]}
+            ]
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [{"Name": "trail", "IsOrganizationTrail": False}]
             }
@@ -776,6 +818,61 @@ class TestRunStandaloneAccount:
         assert maturity["level"] == 1
 
 
+class TestRunUnknownAccountType:
+    """DescribeOrganization denied: run limited checks instead of crashing."""
+
+    @patch("src.main.parse_args")
+    @patch("src.checks.organization.boto3.client")
+    @patch("src.checks.account_resources.boto3.client")
+    @patch("src.checks.identity.boto3.client")
+    @patch("src.discovery.regions.boto3.client")
+    @patch("src.discovery.account_type.boto3.client")
+    def test_access_denied_runs_limited_assessment(
+        self,
+        mock_acct_client,
+        mock_regions_client,
+        mock_id_client,
+        mock_res_client,
+        mock_org_client,
+        mock_parse_args,
+        tmp_path,
+    ):
+        from botocore.exceptions import ClientError
+
+        mock_parse_args.return_value = MagicMock(output=str(tmp_path))
+        standalone = _mock_standalone_account_boto3()
+
+        def factory(service, **kwargs):
+            if service == "organizations":
+                mock = MagicMock()
+                mock.describe_organization.side_effect = ClientError(
+                    {"Error": {"Code": "AccessDeniedException", "Message": "Denied"}},
+                    "DescribeOrganization",
+                )
+                return mock
+            return standalone(service, **kwargs)
+
+        for mock_client in (
+            mock_acct_client,
+            mock_regions_client,
+            mock_id_client,
+            mock_res_client,
+            mock_org_client,
+        ):
+            mock_client.side_effect = factory
+
+        checks, _ = run()
+
+        assert len(checks) == 9
+        statuses = {c["check"]: c["status"] for c in checks}
+        assert statuses["AWS Organization exists"] == "error"
+        assert statuses["Management account identified"] == "error"
+        raw = json.loads((tmp_path / "wafa-raw.json").read_text())
+        assert raw["account_info"]["account_type"] == "unknown"
+        assert "AccessDeniedException" in raw["account_info"]["detection_error"]
+        assert raw["delegated_administrators_error"] is None
+
+
 # ============================================================================
 # S3 upload path
 # ============================================================================
@@ -903,3 +1000,10 @@ class TestPrintSummary:
 
         assert "Expert" in captured.out
         assert "Progress toward" not in captured.out
+
+
+def test_exit_code_fails_only_when_every_check_errors():
+    assert exit_code([{"status": "error"}, {"status": "error"}]) == 1
+    assert exit_code([{"status": "error"}, {"status": "incomplete"}]) == 0
+    assert exit_code([{"status": "complete"}]) == 0
+    assert exit_code([]) == 0

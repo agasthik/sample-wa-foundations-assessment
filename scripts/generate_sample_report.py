@@ -164,7 +164,7 @@ def _sample_management_account_client_factory():
             }
 
         elif service == "iam":
-            mock.list_users.return_value = {"Users": []}
+            mock.get_paginator.return_value.paginate.return_value = [{"Users": []}]
 
         elif service == "ec2":
             mock.describe_regions.return_value = {
@@ -177,6 +177,7 @@ def _sample_management_account_client_factory():
             mock.describe_vpcs.return_value = {"Vpcs": []}
 
         elif service == "cloudtrail":
+            mock.get_trail_status.return_value = {"IsLogging": True}
             mock.describe_trails.return_value = {
                 "trailList": [
                     {
@@ -275,6 +276,16 @@ def _verify_outputs(out_dir):
             problems.append("HTML report data checks differ from wafa-raw.json")
         if data["maturity"] != raw["maturity"]:
             problems.append("HTML report data maturity differs from wafa-raw.json")
+        # The HTML payload and raw JSON name some fields differently.
+        for html_key, raw_key, default in (
+            ("account_info", "account_info", {}),
+            ("delegated_admins", "delegated_administrators", []),
+            ("delegated_admins_error", "delegated_administrators_error", None),
+        ):
+            if data.get(html_key, default) != raw.get(raw_key, default):
+                problems.append(
+                    f"HTML report data {html_key} differs from wafa-raw.json"
+                )
         statuses = {check["status"] for check in data["checks"]}
         if not {"complete", "incomplete", "error"} <= statuses:
             problems.append("sample does not exercise complete, incomplete, and error")

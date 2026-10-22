@@ -32,6 +32,7 @@ class TestCheckCloudtrailExists:
         mock_ct.describe_trails.return_value = {
             "trailList": [{"Name": "my-trail", "HomeRegion": "us-east-1"}]
         }
+        mock_ct.get_trail_status.return_value = {"IsLogging": True}
         mock_client.return_value = mock_ct
 
         result = check_cloudtrail_exists(MOCK_REGIONS)
@@ -69,6 +70,7 @@ class TestCheckCloudtrailOrgTrail:
         mock_ct.describe_trails.return_value = {
             "trailList": [{"Name": "org-trail", "IsOrganizationTrail": True}]
         }
+        mock_ct.get_trail_status.return_value = {"IsLogging": True}
         mock_client.return_value = mock_ct
 
         result = check_cloudtrail_org_trail(MOCK_REGIONS)
@@ -566,3 +568,259 @@ class TestRunAll:
 
         results = run_all(MOCK_REGIONS, is_management_account=False)
         assert len(results) == 6
+
+
+# ============================================================================
+# Partial region failures (SCP region deny, throttling)
+# ============================================================================
+
+
+def _region_factory(by_region):
+    def factory(service, region_name=None, **kwargs):
+        return by_region[region_name]
+
+    return factory
+
+
+def _denied(operation):
+    return ClientError(
+        {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "explicit deny in a service control policy",
+            }
+        },
+        operation,
+    )
+
+
+class TestPartialRegionFailures:
+    REGIONS = ("ap-south-1", "eu-west-1", "us-east-1")
+
+    def _cloudtrail(self, trails_in_us_east_1):
+        denied = MagicMock()
+        denied.describe_trails.side_effect = _denied("DescribeTrails")
+        empty = MagicMock()
+        empty.describe_trails.return_value = {"trailList": []}
+        home = MagicMock()
+        home.describe_trails.return_value = {"trailList": trails_in_us_east_1}
+        home.get_trail_status.return_value = {"IsLogging": True}
+        return _region_factory(
+            {"ap-south-1": denied, "eu-west-1": empty, "us-east-1": home}
+        )
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_trail_found_despite_denied_region(self, mock_client):
+        """A trail in one region wins over a denied, earlier-sorted region."""
+        mock_client.side_effect = self._cloudtrail(
+            [{"Name": "org", "IsOrganizationTrail": True}]
+        )
+
+        assert check_cloudtrail_exists(self.REGIONS)["status"] == "complete"
+        result = check_cloudtrail_org_trail(self.REGIONS)
+        assert result["status"] == "complete"
+        assert "error" not in result
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_not_found_with_denied_region_is_error(self, mock_client):
+        """Absence cannot be concluded when a region could not be inspected."""
+        mock_client.side_effect = self._cloudtrail([])
+
+        result = check_cloudtrail_exists(self.REGIONS)
+        assert result["status"] == "error"
+        assert "Could not inspect 1 region(s): ap-south-1" in result["error"]
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_config_recorder_found_despite_denied_region(self, mock_client):
+        denied = MagicMock()
+        denied.describe_configuration_recorders.side_effect = _denied(
+            "DescribeConfigurationRecorders"
+        )
+        active = MagicMock()
+        active.describe_configuration_recorders.return_value = {
+            "ConfigurationRecorders": [{"name": "default"}]
+        }
+        active.describe_configuration_recorder_status.return_value = {
+            "ConfigurationRecordersStatus": [{"recording": True}]
+        }
+        mock_client.side_effect = _region_factory(
+            {"ap-south-1": denied, "eu-west-1": active, "us-east-1": active}
+        )
+
+        assert check_config_recorder(self.REGIONS)["status"] == "complete"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_vpc_found_despite_denied_region_is_incomplete(self, mock_client):
+        denied = MagicMock()
+        denied.describe_vpcs.side_effect = _denied("DescribeVpcs")
+        with_vpc = MagicMock()
+        with_vpc.describe_vpcs.return_value = {"Vpcs": [{"VpcId": "vpc-1"}]}
+        empty = MagicMock()
+        empty.describe_vpcs.return_value = {"Vpcs": []}
+        mock_client.side_effect = _region_factory(
+            {"ap-south-1": denied, "eu-west-1": empty, "us-east-1": with_vpc}
+        )
+
+        assert check_no_vpcs(self.REGIONS)["status"] == "incomplete"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_no_instances_with_denied_region_is_error(self, mock_client):
+        denied = MagicMock()
+        denied.describe_instances.side_effect = _denied("DescribeInstances")
+        empty = MagicMock()
+        empty.describe_instances.return_value = {"Reservations": []}
+        mock_client.side_effect = _region_factory(
+            {"ap-south-1": denied, "eu-west-1": empty, "us-east-1": empty}
+        )
+
+        result = check_no_ec2_instances(self.REGIONS)
+        assert result["status"] == "error"
+        assert list(result) == [
+            "check",
+            "description",
+            "status",
+            "required",
+            "weight",
+            "loe",
+            "remediationLink",
+            "error",
+        ]
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_clients_created_in_calling_thread(self, mock_client):
+        """boto3.client() must not be called from worker threads."""
+        import threading
+
+        main_thread = threading.get_ident()
+        creating_threads = set()
+
+        def factory(service, region_name=None, **kwargs):
+            creating_threads.add(threading.get_ident())
+            client = MagicMock()
+            client.describe_trails.return_value = {"trailList": []}
+            return client
+
+        mock_client.side_effect = factory
+
+        check_cloudtrail_exists(self.REGIONS)
+        assert creating_threads == {main_thread}
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_client_creation_failure_does_not_stop_other_regions(self, mock_client):
+        """A region whose client cannot be built is an error, not an abort."""
+        home = MagicMock()
+        home.describe_trails.return_value = {"trailList": [{"Name": "t"}]}
+        home.get_trail_status.return_value = {"IsLogging": True}
+        empty = MagicMock()
+        empty.describe_trails.return_value = {"trailList": []}
+
+        def factory(service, region_name=None, **kwargs):
+            if region_name == "ap-south-1":
+                raise ValueError("cannot build client")
+            return home if region_name == "us-east-1" else empty
+
+        mock_client.side_effect = factory
+
+        assert check_cloudtrail_exists(self.REGIONS)["status"] == "complete"
+        home.describe_trails.assert_called_once()
+
+        home.describe_trails.return_value = {"trailList": []}
+        result = check_cloudtrail_exists(self.REGIONS)
+        assert result["status"] == "error"
+        assert (
+            "Could not inspect 1 region(s): ap-south-1: cannot build client"
+            in result["error"]
+        )
+
+
+# ============================================================================
+# Trail logging, active instances
+# ============================================================================
+
+
+class TestTrailLoggingAndInstanceState:
+    @patch("src.checks.account_resources.boto3.client")
+    def test_stopped_trails_do_not_count(self, mock_client):
+        mock_ct = MagicMock()
+        mock_ct.describe_trails.return_value = {
+            "trailList": [
+                {
+                    "Name": "org",
+                    "TrailARN": "arn:aws:cloudtrail:us-east-1:111111111111:trail/org",
+                    "IsOrganizationTrail": True,
+                }
+            ]
+        }
+        mock_ct.get_trail_status.return_value = {"IsLogging": False}
+        mock_client.return_value = mock_ct
+
+        assert check_cloudtrail_exists(MOCK_REGIONS)["status"] == "incomplete"
+        assert check_cloudtrail_org_trail(MOCK_REGIONS)["status"] == "incomplete"
+        mock_ct.get_trail_status.assert_called_with(
+            Name="arn:aws:cloudtrail:us-east-1:111111111111:trail/org"
+        )
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_trail_status_error_is_error(self, mock_client):
+        mock_ct = MagicMock()
+        mock_ct.describe_trails.return_value = {"trailList": [{"Name": "t"}]}
+        mock_ct.get_trail_status.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Denied"}},
+            "GetTrailStatus",
+        )
+        mock_client.return_value = mock_ct
+
+        assert check_cloudtrail_exists(MOCK_REGIONS)["status"] == "error"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_unreadable_trail_does_not_hide_logging_trail(self, mock_client):
+        mock_ct = MagicMock()
+        mock_ct.describe_trails.return_value = {
+            "trailList": [
+                {"Name": "denied", "IsOrganizationTrail": True},
+                {"Name": "logging", "IsOrganizationTrail": True},
+            ]
+        }
+
+        def trail_status(Name):
+            if Name == "denied":
+                raise _denied("GetTrailStatus")
+            return {"IsLogging": True}
+
+        mock_ct.get_trail_status.side_effect = trail_status
+        mock_client.return_value = mock_ct
+
+        assert check_cloudtrail_exists(MOCK_REGIONS)["status"] == "complete"
+        assert check_cloudtrail_org_trail(MOCK_REGIONS)["status"] == "complete"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_unreadable_and_stopped_trails_are_error(self, mock_client):
+        mock_ct = MagicMock()
+        mock_ct.describe_trails.return_value = {
+            "trailList": [{"Name": "stopped"}, {"Name": "denied"}]
+        }
+
+        def trail_status(Name):
+            if Name == "denied":
+                raise _denied("GetTrailStatus")
+            return {"IsLogging": False}
+
+        mock_ct.get_trail_status.side_effect = trail_status
+        mock_client.return_value = mock_ct
+
+        assert check_cloudtrail_exists(MOCK_REGIONS)["status"] == "error"
+
+    @patch("src.checks.account_resources.boto3.client")
+    def test_instance_check_ignores_terminated_instances(self, mock_client):
+        mock_ec2 = MagicMock()
+        mock_ec2.describe_instances.return_value = {"Reservations": []}
+        mock_client.return_value = mock_ec2
+
+        assert check_no_ec2_instances(MOCK_REGIONS)["status"] == "complete"
+        _, kwargs = mock_ec2.describe_instances.call_args
+        assert kwargs["Filters"] == [
+            {
+                "Name": "instance-state-name",
+                "Values": ["pending", "running", "stopping", "stopped"],
+            }
+        ]

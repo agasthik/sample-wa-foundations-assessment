@@ -229,3 +229,162 @@ class TestCheckControlTowerLatestVersion:
 
         result = check_control_tower_latest_version()
         assert result["status"] == "error"
+
+
+# ============================================================================
+# Opt-in home regions
+# ============================================================================
+
+
+class TestOptInHomeRegion:
+    OPT_IN_ARN = "arn:aws:controltower:eu-south-1:111:landingzone/abc"
+
+    @staticmethod
+    def _factory(by_region):
+        def factory(service, region_name=None, **kwargs):
+            return by_region[region_name]
+
+        return factory
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_landing_zone_found_in_opted_in_home_region(self, mock_client):
+        """A landing zone homed in an opt-in region is listed only from there."""
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        home = MagicMock()
+        home.list_landing_zones.return_value = {
+            "landingZones": [{"arn": self.OPT_IN_ARN}]
+        }
+        home.get_landing_zone.return_value = {
+            "landingZone": {
+                "driftStatus": {"status": "IN_SYNC"},
+                "version": "4.0",
+                "latestAvailableVersion": "4.0",
+            }
+        }
+        mock_client.side_effect = self._factory({None: default, "eu-south-1": home})
+
+        assert check_control_tower_deployed(["eu-south-1"])["status"] == "complete"
+        assert check_control_tower_not_drifted(["eu-south-1"])["status"] == "complete"
+        assert (
+            check_control_tower_latest_version(["eu-south-1"])["status"] == "complete"
+        )
+
+    @patch("src.checks.control_tower.has_service_endpoint", return_value=False)
+    @patch("src.checks.control_tower.boto3.client")
+    def test_opted_in_region_without_endpoint_is_skipped(
+        self, mock_client, mock_endpoint
+    ):
+        from botocore.exceptions import EndpointConnectionError
+
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        unsupported = MagicMock()
+        unsupported.list_landing_zones.side_effect = EndpointConnectionError(
+            endpoint_url="https://controltower.example-region-1.amazonaws.com"
+        )
+        mock_client.side_effect = self._factory(
+            {None: default, "example-region-1": unsupported}
+        )
+
+        result = check_control_tower_deployed(["example-region-1"])
+        assert result["status"] == "incomplete"
+        mock_endpoint.assert_called_once_with("controltower", "example-region-1")
+
+    @patch("src.checks.control_tower.has_service_endpoint", return_value=True)
+    @patch("src.checks.control_tower.boto3.client")
+    def test_connection_failure_in_supported_region_is_error(
+        self, mock_client, mock_endpoint
+    ):
+        from botocore.exceptions import EndpointConnectionError
+
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        unreachable = MagicMock()
+        unreachable.list_landing_zones.side_effect = EndpointConnectionError(
+            endpoint_url="https://controltower.eu-south-1.amazonaws.com"
+        )
+        mock_client.side_effect = self._factory(
+            {None: default, "eu-south-1": unreachable}
+        )
+
+        result = check_control_tower_deployed(["eu-south-1"])
+        assert result["status"] == "error"
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_opted_in_region_access_denied_is_error(self, mock_client):
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        denied = MagicMock()
+        denied.list_landing_zones.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Denied"}},
+            "ListLandingZones",
+        )
+        mock_client.side_effect = self._factory({None: default, "eu-south-1": denied})
+
+        result = check_control_tower_deployed(["eu-south-1"])
+        assert result["status"] == "error"
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_early_region_error_does_not_hide_later_landing_zone(self, mock_client):
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        throttled = MagicMock()
+        throttled.list_landing_zones.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+            "ListLandingZones",
+        )
+        home = MagicMock()
+        home.list_landing_zones.return_value = {
+            "landingZones": [{"arn": self.OPT_IN_ARN}]
+        }
+        mock_client.side_effect = self._factory(
+            {None: default, "ap-east-1": throttled, "eu-south-1": home}
+        )
+
+        result = check_control_tower_deployed(["ap-east-1", "eu-south-1"])
+        assert result["status"] == "complete"
+        home.list_landing_zones.assert_called_once()
+
+    @patch("src.checks.control_tower.boto3.client")
+    def test_region_error_with_no_landing_zone_elsewhere_is_error(self, mock_client):
+        default = MagicMock()
+        default.list_landing_zones.return_value = {"landingZones": []}
+        throttled = MagicMock()
+        throttled.list_landing_zones.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+            "ListLandingZones",
+        )
+        empty = MagicMock()
+        empty.list_landing_zones.return_value = {"landingZones": []}
+        mock_client.side_effect = self._factory(
+            {None: default, "ap-east-1": throttled, "eu-south-1": empty}
+        )
+
+        result = check_control_tower_deployed(["ap-east-1", "eu-south-1"])
+        assert result["status"] == "error"
+        assert "ThrottlingException" in result["error"]
+        empty.list_landing_zones.assert_called_once()
+
+
+class TestDriftStatusUnavailable:
+    @patch("src.checks.control_tower.boto3.client")
+    def test_missing_or_unknown_drift_status_is_error(self, mock_client):
+        """An indeterminate drift status must not pass the check."""
+        for landing_zone in (
+            {},
+            {"driftStatus": {}},
+            {"driftStatus": {"status": "UNKNOWN"}},
+        ):
+            mock_ct = MagicMock()
+            mock_ct.list_landing_zones.return_value = {
+                "landingZones": [
+                    {"arn": "arn:aws:controltower:us-east-1:111:landingzone/abc"}
+                ]
+            }
+            mock_ct.get_landing_zone.return_value = {"landingZone": landing_zone}
+            mock_client.return_value = mock_ct
+
+            result = check_control_tower_not_drifted()
+            assert result["status"] == "error"
+            assert "drift status is unavailable" in result["error"]

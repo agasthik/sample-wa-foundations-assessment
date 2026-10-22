@@ -103,6 +103,67 @@ class TestCheckIamIdentityCenter:
         assert result["status"] == "complete"
 
     @patch("src.checks.identity.boto3.client")
+    def test_error_when_throttled_everywhere(self, mock_client):
+        """Throttling leaves the state unknown, so the check is not incomplete."""
+        mock_client.return_value.list_instances.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "Slow down"}},
+            "ListInstances",
+        )
+
+        result = check_iam_identity_center(["us-east-1", "eu-west-1"])
+        assert result["status"] == "error"
+        assert "us-east-1: ThrottlingException" in result["error"]
+
+    @patch("src.checks.identity.has_service_endpoint", return_value=False)
+    @patch("src.checks.identity.boto3.client")
+    def test_region_without_endpoint_is_skipped(self, mock_client, mock_endpoint):
+        from botocore.exceptions import EndpointConnectionError
+
+        unsupported = MagicMock()
+        unsupported.list_instances.side_effect = EndpointConnectionError(
+            endpoint_url="https://sso.example-region-1.amazonaws.com"
+        )
+        empty = MagicMock()
+        empty.list_instances.return_value = {"Instances": []}
+        mock_client.side_effect = [unsupported, empty]
+
+        result = check_iam_identity_center(["example-region-1", "us-east-1"])
+        assert result["status"] == "incomplete"
+        mock_endpoint.assert_called_once_with("sso-admin", "example-region-1")
+
+    @patch("src.checks.identity.has_service_endpoint", return_value=True)
+    @patch("src.checks.identity.boto3.client")
+    def test_connection_failure_in_supported_region_is_error(
+        self, mock_client, mock_endpoint
+    ):
+        from botocore.exceptions import EndpointConnectionError
+
+        unreachable = MagicMock()
+        unreachable.list_instances.side_effect = EndpointConnectionError(
+            endpoint_url="https://sso.eu-west-1.amazonaws.com"
+        )
+        empty = MagicMock()
+        empty.list_instances.return_value = {"Instances": []}
+        mock_client.side_effect = [unreachable, empty]
+
+        result = check_iam_identity_center(["eu-west-1", "us-east-1"])
+        assert result["status"] == "error"
+        assert "eu-west-1" in result["error"]
+
+    @patch("src.checks.identity.boto3.client")
+    def test_complete_despite_failure_in_earlier_region(self, mock_client):
+        failing = MagicMock()
+        failing.list_instances.side_effect = RuntimeError("connection reset")
+        found = MagicMock()
+        found.list_instances.return_value = {
+            "Instances": [{"InstanceArn": "arn:aws:sso:::instance/ssoins-1"}]
+        }
+        mock_client.side_effect = [failing, found]
+
+        result = check_iam_identity_center(["eu-west-1", "us-east-1"])
+        assert result["status"] == "complete"
+
+    @patch("src.checks.identity.boto3.client")
     def test_error_on_non_client_error(self, mock_client):
         """Non-ClientError (e.g., TypeError) is caught at outer level."""
         mock_client.side_effect = TypeError("Unexpected error")
@@ -122,7 +183,7 @@ class TestCheckNoIamUsers:
     def test_complete_no_users(self, mock_client):
         """No IAM users — complete."""
         mock_iam = MagicMock()
-        mock_iam.list_users.return_value = {"Users": []}
+        mock_iam.get_paginator.return_value.paginate.return_value = [{"Users": []}]
         mock_client.return_value = mock_iam
 
         result = check_no_iam_users()
@@ -133,9 +194,22 @@ class TestCheckNoIamUsers:
     def test_incomplete_users_exist(self, mock_client):
         """IAM users exist — incomplete."""
         mock_iam = MagicMock()
-        mock_iam.list_users.return_value = {
-            "Users": [{"UserName": "legacy-admin", "UserId": "AIDA123"}]
-        }
+        mock_iam.get_paginator.return_value.paginate.return_value = [
+            {"Users": [{"UserName": "legacy-admin", "UserId": "AIDA123"}]}
+        ]
+        mock_client.return_value = mock_iam
+
+        result = check_no_iam_users()
+        assert result["status"] == "incomplete"
+
+    @patch("src.checks.identity.boto3.client")
+    def test_incomplete_users_on_later_page(self, mock_client):
+        """Users found only on a later page — incomplete (pagination required)."""
+        mock_iam = MagicMock()
+        mock_iam.get_paginator.return_value.paginate.return_value = [
+            {"Users": []},
+            {"Users": [{"UserName": "legacy-admin", "UserId": "AIDA123"}]},
+        ]
         mock_client.return_value = mock_iam
 
         result = check_no_iam_users()
@@ -145,7 +219,7 @@ class TestCheckNoIamUsers:
     def test_error(self, mock_client):
         """API error."""
         mock_iam = MagicMock()
-        mock_iam.list_users.side_effect = ClientError(
+        mock_iam.get_paginator.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "Denied"}},
             "ListUsers",
         )
@@ -154,6 +228,19 @@ class TestCheckNoIamUsers:
         result = check_no_iam_users()
         assert result["status"] == "error"
         assert "error" in result
+
+    @patch("src.checks.identity.boto3.client")
+    def test_uses_partition_default_region(self, mock_client):
+        """IAM is queried in the partition default region, not us-east-1."""
+        mock_client.return_value.get_paginator.return_value.paginate.return_value = [
+            {"Users": []}
+        ]
+
+        for region in ("us-gov-west-1", "cn-north-1"):
+            mock_client.reset_mock()
+            result = check_no_iam_users(region)
+            assert result["status"] == "complete"
+            mock_client.assert_called_once_with("iam", region_name=region)
 
 
 # ============================================================================
@@ -169,7 +256,7 @@ class TestRunAll:
         mock_sso.list_instances.return_value = {"Instances": [{"InstanceArn": "arn"}]}
 
         mock_iam = MagicMock()
-        mock_iam.list_users.return_value = {"Users": []}
+        mock_iam.get_paginator.return_value.paginate.return_value = [{"Users": []}]
 
         def client_factory(service, **kwargs):
             if service == "sso-admin":
@@ -187,7 +274,7 @@ class TestRunAll:
     def test_non_management_runs_only_iam_users(self, mock_client):
         """Non-management account: only FR-6.2 runs."""
         mock_iam = MagicMock()
-        mock_iam.list_users.return_value = {"Users": []}
+        mock_iam.get_paginator.return_value.paginate.return_value = [{"Users": []}]
         mock_client.return_value = mock_iam
 
         results = run_all(["us-east-1"], is_management_account=False)
